@@ -1,9 +1,11 @@
 use std::error::Error;
 
-use axum::{response::IntoResponse, routing::post, serve::Serve, Json, Router};
-use serde_json::json;
+use axum::{routing::post, serve::Serve, Router};
 use tower_http::services::ServeDir;
 
+use crate::routes::*;
+
+pub mod routes;
 // This struct encapsulates our application-related logic.
 pub struct Application {
     server: Serve<Router, Router>,
@@ -14,9 +16,6 @@ pub struct Application {
 
 impl Application {
     pub async fn build(address: &str) -> Result<Self, Box<dyn Error>> {
-        // Move the Router definition from `main.rs` to here.
-        // Also, remove the `hello` route.
-        // We don't need it at this point!
         let router = Router::new()
             .route("/signup", post(signup))
             .route("/login", post(login))
@@ -39,24 +38,4 @@ impl Application {
         println!("listening on {}", &self.address);
         self.server.await
     }
-}
-
-async fn signup() -> impl IntoResponse {
-    Json(json!({ "message": "Successful signup" }))
-}
-
-async fn login() -> impl IntoResponse {
-    Json(json!({ "message": "Successful login" }))
-}
-
-async fn logout() -> impl IntoResponse {
-    Json(json!({ "message": "Successful logout" }))
-}
-
-async fn verify_2fa() -> impl IntoResponse {
-    Json(json!({ "message": "Success verifying 2fa" }))
-}
-
-async fn verify_token() -> impl IntoResponse {
-    Json(json!({ "message": "Success verifying token" }))
 }
