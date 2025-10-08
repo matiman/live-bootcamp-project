@@ -9,7 +9,6 @@ pub async fn signup(Json(request): Json<SignupRequest>) -> impl IntoResponse {
 pub struct SignupRequest {
     pub email: String,
     pub password: String,
-    //to match the API's payload structure
     #[serde(rename = "requires2FA")]
     pub requires_2fa: bool,
 }
