@@ -5,12 +5,12 @@ use axum::{
     serve::Serve,
     Json, Router,
 };
-use domain::AuthAPIError;
+
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use tower_http::services::ServeDir;
 
-use crate::routes::*;
+use crate::{domain::AuthAPIError, routes::*};
 
 pub mod app_state;
 pub mod domain;
