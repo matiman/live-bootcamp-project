@@ -3,3 +3,9 @@ pub enum AuthAPIError {
     InvalidCredentials,
     UnexpectedError,
 }
+#[derive(Debug, PartialEq, Clone)]
+pub enum UserValidationError {
+    InvalidEmail,
+    InvalidPassword,
+    UnexpectedError,
+}

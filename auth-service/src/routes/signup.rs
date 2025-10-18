@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     app_state::AppState,
-    domain::{AuthAPIError, User},
+    domain::{AuthAPIError, Email, Password, User},
 };
 
 pub async fn signup(
@@ -13,12 +13,10 @@ pub async fn signup(
     let email = request.email;
     let password = request.password;
 
-    // TODO: early return AuthAPIError::InvalidCredentials if:
-    // - email is empty or does not contain '@'
-    // - password is less than 8 characters
-    if email.is_empty() || !email.contains('@') || password.len() < 8 {
-        return Err(AuthAPIError::InvalidCredentials);
-    }
+    //USE Email and Passowrd parse method
+    let email = Email::parse(&email.as_ref()).map_err(|_| AuthAPIError::InvalidCredentials)?;
+    let password =
+        Password::parse(&password.as_ref()).map_err(|_| AuthAPIError::InvalidCredentials)?;
 
     // Create a new `User` instance using data in the `request`
     let user = User {
@@ -54,8 +52,8 @@ pub struct SignupResponse {
 }
 #[derive(Deserialize)]
 pub struct SignupRequest {
-    pub email: String,
-    pub password: String,
+    pub email: Email,
+    pub password: Password,
     #[serde(rename = "requires2FA")]
     pub requires_2fa: bool,
 }
