@@ -67,13 +67,6 @@ async fn should_return_201_if_valid_input() {
 
 #[tokio::test]
 async fn should_return_400_if_invalid_input() {
-    // The signup route should return a 400 HTTP status code if an invalid input is sent.
-    // The input is considered invalid if:
-    // - The email is empty or does not contain '@'
-    // - The password is less than 8 characters
-
-    // Create an array of invalid inputs. Then, iterate through the array and
-    // make HTTP calls to the signup route. Assert a 400 HTTP status code is returned.
 
     let app = TestApp::new().await;
 

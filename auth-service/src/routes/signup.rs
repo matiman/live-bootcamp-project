@@ -14,13 +14,12 @@ pub async fn signup(
     let password = request.password;
 
     //USE Email and Passowrd parse method
-    let email = Email::parse(&email.as_ref()).map_err(|_| AuthAPIError::InvalidCredentials)?;
-    let password =
-        Password::parse(&password.as_ref()).map_err(|_| AuthAPIError::InvalidCredentials)?;
+    let email = Email::parse(&email).map_err(|_| AuthAPIError::InvalidCredentials)?;
+    let password = Password::parse(&password).map_err(|_| AuthAPIError::InvalidCredentials)?;
 
     // Create a new `User` instance using data in the `request`
     let user = User {
-        email: email.clone(),
+        email: email,
         password,
         requires_2fa: request.requires_2fa,
     };
@@ -28,7 +27,7 @@ pub async fn signup(
     let mut user_store = state.user_store.write().await;
 
     // TODO: early return AuthAPIError::UserAlreadyExists if email exists in user_store.
-    if user_store.get_user(&email).await.is_ok() {
+    if user_store.get_user(&user.email).await.is_ok() {
         return Err(AuthAPIError::UserAlreadyExists);
     }
     // TODO: instead of using unwrap, early return AuthAPIError::UnexpectedError if add_user() fails.
@@ -52,8 +51,8 @@ pub struct SignupResponse {
 }
 #[derive(Deserialize)]
 pub struct SignupRequest {
-    pub email: Email,
-    pub password: Password,
+    pub email: String,
+    pub password: String,
     #[serde(rename = "requires2FA")]
     pub requires_2fa: bool,
 }

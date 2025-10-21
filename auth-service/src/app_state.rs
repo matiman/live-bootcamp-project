@@ -4,7 +4,7 @@ use tokio::sync::RwLock;
 use crate::{domain::UserStore, services::hashmap_user_store::HashmapUserStore};
 
 // Using a type alias to improve readability!
-pub type UserStoreType = Arc<RwLock<dyn UserStore>>;
+pub type UserStoreType = Arc<RwLock<dyn UserStore + Send + Sync>>;
 
 #[derive(Clone)]
 pub struct AppState {
