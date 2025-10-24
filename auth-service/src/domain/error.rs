@@ -3,6 +3,9 @@ pub enum AuthAPIError {
     InvalidCredentials,
     IncorrectCredentials,
     UnexpectedError,
+    MissingToken,
+    InvalidToken,
+    TokenAlreadyBanned,
 }
 #[derive(Debug, PartialEq, Clone)]
 pub enum UserValidationError {
