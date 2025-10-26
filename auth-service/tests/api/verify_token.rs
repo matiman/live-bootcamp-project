@@ -1,5 +1,5 @@
 use crate::helpers::{get_random_email, TestApp};
-use auth_service::utils::constants::JWT_SECRET;
+use auth_service::utils::{constants::JWT_SECRET, JWT_COOKIE_NAME};
 use chrono::Utc;
 use jsonwebtoken::{encode, EncodingKey, Header};
 use quickcheck::{Arbitrary, Gen};
@@ -31,13 +31,7 @@ async fn should_return_422_if_malformed_input() {
     ];
 
     for test_case in test_cases.iter() {
-        let response = app
-            .http_client
-            .post(&format!("{}/verify-token", &app.address))
-            .json(test_case)
-            .send()
-            .await
-            .expect("Failed to execute request.");
+        let response = app.post_verify_token(test_case).await;
 
         // Assert that we get 422 Unprocessable Entity
         assert_eq!(response.status(), 422);
@@ -81,13 +75,7 @@ async fn should_return_200_valid_token() {
         "token": jwt_token
     });
 
-    let response = app
-        .http_client
-        .post(&format!("{}/verify-token", &app.address))
-        .json(&verify_body)
-        .send()
-        .await
-        .expect("Failed to execute request.");
+    let response = app.post_verify_token(&verify_body).await;
 
     // Assert that we get 200 OK
     assert_eq!(response.status(), 200);
@@ -106,13 +94,7 @@ async fn should_return_401_if_invalid_token() {
         "token": "invalid_jwt_token_here"
     });
 
-    let response = app
-        .http_client
-        .post(&format!("{}/verify-token", &app.address))
-        .json(&verify_body)
-        .send()
-        .await
-        .expect("Failed to execute request.");
+    let response = app.post_verify_token(&verify_body).await;
 
     // Assert that we get 401 Unauthorized
     assert_eq!(response.status(), 401);
@@ -129,17 +111,56 @@ fn should_return_401_for_any_invalid_token(invalid_token: String) {
             "token": invalid_token
         });
 
-        let response = app
-            .http_client
-            .post(&format!("{}/verify-token", &app.address))
-            .json(&verify_body)
-            .send()
-            .await
-            .expect("Failed to execute request.");
+        let response = app.post_verify_token(&verify_body).await;
 
         // Should return 401 for any invalid token
         assert_eq!(response.status(), 401);
     })
+}
+
+#[tokio::test]
+async fn should_return_401_if_banned_token() {
+    //Generate a valid token using how we did in other tests with email and password
+    let app = TestApp::new().await;
+    let random_email = get_random_email();
+    let signup_body = serde_json::json!({
+      "email": random_email,
+      "password": "pasword123",
+      "requires2FA": false
+    });
+    let response = app.post_signup(&signup_body).await;
+    assert_eq!(response.status().as_u16(), 201);
+
+    let login_body = serde_json::json!({
+      "email": random_email,
+      "password": "pasword123",
+    });
+    let response = app.post_login(&login_body).await;
+    assert_eq!(response.status().as_u16(), 200);
+
+    let auth_cookie = response
+        .cookies()
+        .find(|cookie| cookie.name() == JWT_COOKIE_NAME)
+        .expect("No auth cookie found");
+    let jwt_token = auth_cookie.value();
+
+    let verify_body = serde_json::json!({
+      "token": jwt_token
+    });
+
+    // Add the token to the banned token store
+    {
+        let mut banned_token_store = app.banned_token_store.write().await;
+        banned_token_store
+            .add_banned_token(jwt_token.to_string())
+            .await
+            .unwrap();
+    } // Write lock is dropped here
+
+    let response = app.post_verify_token(&verify_body).await;
+
+    // Should return 401 for banned token
+    assert_eq!(response.status(), 401);
 }
 
 #[quickcheck]
@@ -152,13 +173,7 @@ fn should_return_200_for_any_valid_token(valid_token: ValidJwtToken) {
             "token": valid_token.0
         });
 
-        let response = app
-            .http_client
-            .post(&format!("{}/verify-token", &app.address))
-            .json(&verify_body)
-            .send()
-            .await
-            .expect("Failed to execute request.");
+        let response = app.post_verify_token(&verify_body).await;
 
         // Should return 200 for any valid token
         assert_eq!(response.status(), 200);

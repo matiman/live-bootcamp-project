@@ -20,7 +20,7 @@ impl BannedTokenStore for HashSetBannedTokenStore {
         self.banned_tokens.insert(token);
         Ok(())
     }
-    async fn is_token_banned(&self, token: &str) -> Result<bool, BannedTokenStoreError> {
+    fn is_token_banned(&self, token: &str) -> Result<bool, BannedTokenStoreError> {
         Ok(self.banned_tokens.contains(token))
     }
 }
@@ -41,6 +41,6 @@ mod tests {
         let mut store = HashSetBannedTokenStore::new();
         let token = "test_token".to_string();
         store.add_banned_token(token.clone()).await.unwrap();
-        assert_eq!(store.is_token_banned(&token).await, Ok(true));
+        assert_eq!(store.is_token_banned(&token), Ok(true));
     }
 }
