@@ -2,17 +2,13 @@ use axum::{
     http::{Method, StatusCode},
     response::{IntoResponse, Response},
     routing::post,
-    serve::Serve,
     Json, Router,
 };
 
 use crate::{
     domain::AuthAPIError,
     routes::*,
-    utils::{
-        constants,
-        localhost::{AUTH_SERVICE_DROPLET_URL, AUTH_SERVICE_LOCAL_URL},
-    },
+    utils::localhost::{AUTH_SERVICE_DROPLET_URL, AUTH_SERVICE_LOCAL_URL},
 };
 use serde::{Deserialize, Serialize};
 use std::error::Error;
@@ -27,7 +23,8 @@ pub mod utils;
 use app_state::AppState;
 // This struct encapsulates our application-related logic.
 pub struct Application {
-    server: Serve<Router, Router>,
+    router: Router,
+    listener: tokio::net::TcpListener,
     // address is exposed as a public field
     // so we have access to it in tests.
     pub address: String,
@@ -49,27 +46,31 @@ impl Application {
             .allow_origin(allowed_origins);
 
         let router = Router::new()
-            .nest_service("/", ServeDir::new("assets"))
             .route("/signup", post(signup))
             .route("/login", post(login))
             .route("/verify-2fa", post(verify_2fa))
             .route("/logout", post(logout))
             .route("/verify-token", post(verify_token))
             .with_state(app_state)
-            .layer(cors);
+            .layer(cors)
+            .fallback_service(ServeDir::new("assets"));
         let listener = tokio::net::TcpListener::bind(address).await?;
         let address = listener.local_addr()?.to_string();
 
-        let server = axum::serve(listener, router);
-
         println!("address: {}", address);
         // Create a new Application instance and return it
-        Ok(Application { server, address })
+        Ok(Application {
+            router,
+            listener,
+            address,
+        })
     }
 
     pub async fn run(self) -> Result<(), std::io::Error> {
         println!("listening on {}", &self.address);
-        self.server.await
+        axum::serve(self.listener, self.router)
+            .await
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
     }
 }
 

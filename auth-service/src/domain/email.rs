@@ -1,7 +1,7 @@
 //Email should be a tuple struct.
 
 //use serde::{Deserialize, Serialize};
-use validator::validate_email;
+use validator::ValidateEmail;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct Email(String);
@@ -10,7 +10,7 @@ impl Email {
     /// Parse and validate an email address
     pub fn parse(address: &str) -> Result<Self, EmailError> {
         // Validate using the validator crate
-        if !validate_email(address) {
+        if !ValidateEmail::validate_email(&address) {
             return Err(EmailError::InvalidEmail(format!(
                 "{} is invalid email",
                 address
@@ -75,8 +75,8 @@ mod tests {
     struct ValidEmailFixture(pub String);
 
     impl Arbitrary for ValidEmailFixture {
-        fn arbitrary<G: Gen>(g: &mut G) -> Self {
-            let email = SafeEmail().fake_with_rng(g);
+        fn arbitrary(g: &mut Gen) -> Self {
+            let email: String = SafeEmail().fake();
             Self(email)
         }
     }
@@ -106,7 +106,7 @@ mod tests {
     struct InvalidEmailFixture(pub String);
 
     impl Arbitrary for InvalidEmailFixture {
-        fn arbitrary<G: Gen>(g: &mut G) -> Self {
+        fn arbitrary(g: &mut Gen) -> Self {
             let options = [
                 "no-at-sign",
                 "@missing-local.com",

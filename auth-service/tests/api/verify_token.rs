@@ -181,9 +181,9 @@ fn should_return_200_for_any_valid_token(valid_token: ValidJwtToken) {
 }
 
 impl Arbitrary for ValidJwtToken {
-    fn arbitrary<T: Gen>(g: &mut T) -> Self {
+    fn arbitrary(g: &mut Gen) -> Self {
         // Generate random email
-        let email = format!("user{}@example.com", g.next_u32());
+        let email = format!("user{}@example.com", usize::arbitrary(g));
 
         // Create JWT claims
         let claims = JwtClaims {

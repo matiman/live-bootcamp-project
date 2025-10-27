@@ -62,11 +62,12 @@ pub async fn validate_token(
 ) -> Result<Claims, TokenError> {
     //check if the token is banned
     let banned_token_store_guard = banned_token_store.read().await;
-    if banned_token_store_guard
+    let is_banned = banned_token_store_guard
         .is_token_banned(token)
         .await
-        .map_err(|_| TokenError::UnexpectedError)?
-    {
+        .unwrap_or(false);
+
+    if is_banned {
         return Err(TokenError::BannedTokenError);
     }
 
@@ -88,7 +89,7 @@ fn create_token(claims: &Claims) -> Result<String, jsonwebtoken::errors::Error> 
     )
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Claims {
     pub sub: String,
     pub exp: usize,

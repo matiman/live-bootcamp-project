@@ -15,6 +15,7 @@ pub async fn verify_token(
             };
             Ok((StatusCode::OK, Json(response)))
         }
+        Err(crate::utils::auth::TokenError::BannedTokenError) => Err(AuthAPIError::InvalidToken),
         Err(_) => Err(AuthAPIError::InvalidToken),
     }
 }
