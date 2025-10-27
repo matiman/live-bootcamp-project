@@ -29,3 +29,8 @@ pub mod prod {
 pub mod test {
     pub const APP_ADDRESS: &str = "127.0.0.1:0";
 }
+
+pub mod localhost {
+    pub const AUTH_SERVICE_LOCAL_URL: &str = "http://localhost:8000";
+    pub const AUTH_SERVICE_DROPLET_URL: &str = "http://174.138.41.161:8000";
+}

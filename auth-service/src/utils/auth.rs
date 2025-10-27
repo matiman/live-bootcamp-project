@@ -9,7 +9,7 @@ use super::constants::{JWT_COOKIE_NAME, JWT_SECRET};
 
 // Create cookie with a new JWT auth token
 pub fn generate_auth_cookie(email: &Email) -> Result<Cookie<'static>, TokenError> {
-    let token = generate_auth_token(email).map_err(|_| TokenError::UnexpectedError)?;
+    let token = generate_auth_token(email)?;
     Ok(create_auth_cookie(token))
 }
 
@@ -64,6 +64,7 @@ pub async fn validate_token(
     let banned_token_store_guard = banned_token_store.read().await;
     if banned_token_store_guard
         .is_token_banned(token)
+        .await
         .map_err(|_| TokenError::UnexpectedError)?
     {
         return Err(TokenError::BannedTokenError);
@@ -138,7 +139,7 @@ mod tests {
         let token = generate_auth_token(&email).unwrap();
 
         let banned_token_store =
-            Arc::new(RwLock::new(HashSetBannedTokenStore::new())) as BannedTokenStoreType;
+            Arc::new(RwLock::new(HashSetBannedTokenStore::default())) as BannedTokenStoreType;
         let result = validate_token(&token, &banned_token_store).await.unwrap();
         assert_eq!(result.sub, "test@example.com");
 
@@ -155,7 +156,7 @@ mod tests {
         let token = "invalid_token".to_owned();
 
         let banned_token_store =
-            Arc::new(RwLock::new(HashSetBannedTokenStore::new())) as BannedTokenStoreType;
+            Arc::new(RwLock::new(HashSetBannedTokenStore::default())) as BannedTokenStoreType;
         let result = validate_token(&token, &banned_token_store).await;
         assert!(result.is_err());
     }

@@ -2,16 +2,9 @@ use std::collections::HashMap;
 
 use crate::domain::{Email, Password, User, UserStore, UserStoreError};
 
+#[derive(Default)]
 pub struct HashmapUserStore {
     users: HashMap<Email, User>,
-}
-
-impl Default for HashmapUserStore {
-    fn default() -> Self {
-        HashmapUserStore {
-            users: HashMap::new(),
-        }
-    }
 }
 
 #[async_trait::async_trait]

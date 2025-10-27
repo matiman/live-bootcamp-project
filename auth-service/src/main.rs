@@ -12,7 +12,7 @@ use tokio::sync::RwLock;
 async fn main() {
     let user_store = Arc::new(RwLock::new(HashmapUserStore::default())) as UserStoreType;
     let banned_token_store =
-        Arc::new(RwLock::new(HashSetBannedTokenStore::new())) as BannedTokenStoreType;
+        Arc::new(RwLock::new(HashSetBannedTokenStore::default())) as BannedTokenStoreType;
 
     let app_state = AppState::new(user_store, banned_token_store);
     let app = Application::build(app_state, prod::APP_ADDRESS)

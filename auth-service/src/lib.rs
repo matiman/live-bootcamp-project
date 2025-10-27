@@ -6,7 +6,14 @@ use axum::{
     Json, Router,
 };
 
-use crate::{domain::AuthAPIError, routes::*};
+use crate::{
+    domain::AuthAPIError,
+    routes::*,
+    utils::{
+        constants,
+        localhost::{AUTH_SERVICE_DROPLET_URL, AUTH_SERVICE_LOCAL_URL},
+    },
+};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use tower_http::{cors::CorsLayer, services::ServeDir};
@@ -30,8 +37,8 @@ impl Application {
     pub async fn build(app_state: AppState, address: &str) -> Result<Self, Box<dyn Error>> {
         // Allow the app service(running on our local machine and in production) to call the auth service
         let allowed_origins = [
-            "http://localhost:8000".parse()?,
-            "http://[174.138.41.161]:8000".parse()?,
+            AUTH_SERVICE_LOCAL_URL.parse()?,
+            AUTH_SERVICE_DROPLET_URL.parse()?,
         ];
 
         let cors = CorsLayer::new()

@@ -3,16 +3,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::{app_state::AppState, domain::AuthAPIError, utils::auth::validate_token};
 
-#[derive(Deserialize)]
-pub struct VerifyTokenRequest {
-    pub token: String,
-}
-
-#[derive(Serialize)]
-pub struct VerifyTokenResponse {
-    pub message: String,
-}
-
 pub async fn verify_token(
     State(state): State<AppState>,
     Json(request): Json<VerifyTokenRequest>,
@@ -27,4 +17,14 @@ pub async fn verify_token(
         }
         Err(_) => Err(AuthAPIError::InvalidToken),
     }
+}
+
+#[derive(Deserialize)]
+pub struct VerifyTokenRequest {
+    pub token: String,
+}
+
+#[derive(Serialize)]
+pub struct VerifyTokenResponse {
+    pub message: String,
 }
