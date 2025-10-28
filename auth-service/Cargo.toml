@@ -19,6 +19,7 @@ jsonwebtoken = { version = "10.1.0", features = ["rust_crypto"] }
 chrono = "0.4.35"
 dotenvy = "0.15.7"
 lazy_static = "1.4.0"
+rand = "0.8.5"
 
 
 [dev-dependencies]

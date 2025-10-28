@@ -45,6 +45,7 @@ dependencies = [
  "lazy_static",
  "quickcheck",
  "quickcheck_macros",
+ "rand 0.8.5",
  "reqwest",
  "serde",
  "serde_json",

@@ -93,6 +93,9 @@ impl IntoResponse for AuthAPIError {
                 (StatusCode::INTERNAL_SERVER_ERROR, "Unexpected error")
             }
             AuthAPIError::TokenAlreadyBanned => (StatusCode::UNAUTHORIZED, "Token already banned"),
+            AuthAPIError::TwoFACodeStoreError => {
+                (StatusCode::INTERNAL_SERVER_ERROR, "TwoFA code store error")
+            }
         };
         let body = Json(ErrorResponse {
             error: error_message.to_string(),

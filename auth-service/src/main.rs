@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use auth_service::{
-    app_state::{AppState, BannedTokenStoreType, UserStoreType},
-    services::{HashSetBannedTokenStore, HashmapUserStore},
+    app_state::{AppState, BannedTokenStoreType, TwoFACodeStoreType, UserStoreType},
+    services::{HashSetBannedTokenStore, HashmapTwoFACodeStore, HashmapUserStore},
     utils::prod,
     Application,
 };
@@ -13,8 +13,10 @@ async fn main() {
     let user_store = Arc::new(RwLock::new(HashmapUserStore::default())) as UserStoreType;
     let banned_token_store =
         Arc::new(RwLock::new(HashSetBannedTokenStore::default())) as BannedTokenStoreType;
+    let two_fa_code_store =
+        Arc::new(RwLock::new(HashmapTwoFACodeStore::default())) as TwoFACodeStoreType;
 
-    let app_state = AppState::new(user_store, banned_token_store);
+    let app_state = AppState::new(user_store, banned_token_store, two_fa_code_store);
     let app = Application::build(app_state, prod::APP_ADDRESS)
         .await
         .expect("Failed to build app");
