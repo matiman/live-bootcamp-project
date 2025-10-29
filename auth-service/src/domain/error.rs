@@ -5,6 +5,7 @@ pub enum AuthAPIError {
     UnexpectedError,
     MissingToken,
     InvalidToken,
+    InvalidLoginAttemptId,
     TokenAlreadyBanned,
     TwoFACodeStoreError,
 }

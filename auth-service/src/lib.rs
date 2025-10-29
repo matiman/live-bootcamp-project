@@ -96,6 +96,9 @@ impl IntoResponse for AuthAPIError {
             AuthAPIError::TwoFACodeStoreError => {
                 (StatusCode::INTERNAL_SERVER_ERROR, "TwoFA code store error")
             }
+            AuthAPIError::InvalidLoginAttemptId => {
+                (StatusCode::BAD_REQUEST, "Invalid login attempt ID")
+            }
         };
         let body = Json(ErrorResponse {
             error: error_message.to_string(),
