@@ -70,17 +70,24 @@ pub struct TwoFACode(String);
 impl TwoFACode {
     pub fn parse(code: String) -> Result<Self, String> {
         // Ensure `code` is a valid 6-digit code
-        if code.len() != 6 {
+        let code_as_u32 = code
+            .parse::<u32>()
+            .map_err(|_| "Invalid code. 2FA code should be 6 digits".to_string())?;
+        if (100_000..=999_999).contains(&code_as_u32) {
+            Ok(Self(code))
+        } else {
             return Err("Invalid code. 2FA code should be 6 digits".to_string());
         }
-        Ok(TwoFACode(code))
     }
 }
 
 impl Default for TwoFACode {
     fn default() -> Self {
-        // The code should be a string of 6 digits
-        TwoFACode(format!("{:06}", rand::thread_rng().gen_range(0..1000000)))
+        // The code should be a string of 6 digits in range 100000-999999
+        TwoFACode(format!(
+            "{:06}",
+            rand::thread_rng().gen_range(100_000..=999_999)
+        ))
     }
 }
 

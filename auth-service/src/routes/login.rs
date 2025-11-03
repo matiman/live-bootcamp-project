@@ -70,32 +70,36 @@ async fn handle_2fa(
     let login_attempt_id = LoginAttemptId::default();
     let two_fa_code = TwoFACode::default();
 
+    // Add the login attempt ID and 2FA code to the two_fa_code_store
+
+    if state
+        .two_fa_code_store
+        .write()
+        .await
+        .add_code(email.clone(), login_attempt_id.clone(), two_fa_code.clone())
+        .await
+        .is_err()
+    {
+        return (jar, Err(AuthAPIError::TwoFACodeStoreError));
+    }
+
+    // Send the 2FA code to the email client
+
+    if state
+        .email_client
+        .read()
+        .await
+        .send_email(&email, "2FA code", two_fa_code.as_ref())
+        .await
+        .is_err()
+    {
+        return (jar, Err(AuthAPIError::UnexpectedError));
+    }
+
     let two_fa_response = TwoFactorAuthResponse {
         message: "2FA required".to_string(),
         login_attempt_id: login_attempt_id.as_ref().to_string(),
     };
-
-    // Add the login attempt ID and 2FA code to the two_fa_code_store
-    let mut two_fa_code_store = state.two_fa_code_store.write().await;
-
-    match two_fa_code_store
-        .add_code(email.clone(), login_attempt_id, two_fa_code.clone())
-        .await
-    {
-        Ok(_) => {}
-        Err(_) => return (jar, Err(AuthAPIError::TwoFACodeStoreError)),
-    }
-
-    // Send the 2FA code to the email client
-    let email_client = state.email_client.read().await;
-    match email_client
-        .send_email(&email, "2FA code", two_fa_code.as_ref())
-        .await
-    {
-        Ok(_) => {}
-        Err(_) => return (jar, Err(AuthAPIError::UnexpectedError)),
-    }
-
     (
         jar,
         Ok((

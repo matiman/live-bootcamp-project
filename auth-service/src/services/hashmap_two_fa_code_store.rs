@@ -24,8 +24,10 @@ impl TwoFACodeStore for HashmapTwoFACodeStore {
         Ok(())
     }
     async fn remove_code(&mut self, email: &Email) -> Result<(), TwoFACodeStoreError> {
-        self.codes.remove(email);
-        Ok(())
+        match self.codes.remove(email) {
+            Some(_) => Ok(()),
+            None => Err(TwoFACodeStoreError::LoginAttemptIdNotFound),
+        }
     }
     async fn get_code(
         &self,
@@ -90,12 +92,26 @@ mod tests {
 
     #[quickcheck_macros::quickcheck]
     fn test_two_fa_code_validation(code: String) -> bool {
-        // Valid codes should be exactly 6 characters
-        if code.len() == 6 {
-            TwoFACode::parse(code).is_ok()
+        // Valid codes must be exactly 6 characters, parseable as u32, and in range 100000-999999
+        let is_valid_length = code.len() == 6;
+        let parse_result = TwoFACode::parse(code.clone());
+
+        if is_valid_length {
+            // For 6-character strings, check if they parse correctly
+            // Valid: numeric and in range 100000-999999
+            if let Ok(parsed_u32) = code.parse::<u32>() {
+                if (100_000..=999_999).contains(&parsed_u32) {
+                    parse_result.is_ok()
+                } else {
+                    parse_result.is_err()
+                }
+            } else {
+                // Not numeric, should fail
+                parse_result.is_err()
+            }
         } else {
-            // Invalid codes (wrong length) should return error
-            TwoFACode::parse(code).is_err()
+            // Invalid length should always fail
+            parse_result.is_err()
         }
     }
 }
