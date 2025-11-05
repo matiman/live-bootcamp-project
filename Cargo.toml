@@ -1,3 +1,4 @@
 [workspace]
 members = ["auth-service", "test_macros"]
+exclude = ["app-service"]
 resolver = "2"
