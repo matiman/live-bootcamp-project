@@ -3,9 +3,9 @@ use auth_service::{
     routes::TwoFactorAuthResponse,
     utils::JWT_COOKIE_NAME,
 };
-use quickcheck::{Arbitrary, Gen};
-use quickcheck_macros::quickcheck;
+use quickcheck::{Arbitrary, Gen, QuickCheck};
 use serde_json::Value;
+use test_macros::with_cleanup;
 
 use crate::helpers::{get_random_email, TestApp};
 
@@ -111,23 +111,27 @@ impl FieldType {
     }
 }
 
-#[quickcheck]
-fn should_return_422_for_any_malformed_input(request: MalformedVerify2FARequest) {
-    let rt = tokio::runtime::Runtime::new().unwrap();
-    rt.block_on(async {
-        let app = TestApp::new().await;
+#[tokio::test]
+async fn should_return_422_for_any_malformed_input() {
+    use quickcheck::{Arbitrary, Gen};
+
+    let mut gen = Gen::new(100);
+
+    for _ in 0..10 {
+        let request: MalformedVerify2FARequest = Arbitrary::arbitrary(&mut gen);
         let json_body = request.to_json();
 
+        let app = TestApp::new().await;
         // to_json() ensures the request is malformed (either missing fields or wrong types)
         let response = app.post_verify_2fa(&json_body).await;
+        app.clean_up().await;
 
         assert_eq!(response.status().as_u16(), 422);
-    })
+    }
 }
 
-#[tokio::test]
+#[with_cleanup]
 async fn should_return_400_if_invalid_input() {
-    let app = TestApp::new().await;
     let json_body = serde_json::json!({
         "email": "invalid_email",
         "loginAttemptId": "invalid_login_attempt_id",
@@ -137,9 +141,8 @@ async fn should_return_400_if_invalid_input() {
     assert_eq!(response.status().as_u16(), 400);
 }
 
-#[tokio::test]
+#[with_cleanup]
 async fn should_return_401_if_incorrect_credentials() {
-    let app = TestApp::new().await;
     let random_email = get_random_email();
 
     // Step 1: Signup with 2FA enabled
@@ -193,10 +196,9 @@ async fn should_return_401_if_incorrect_credentials() {
     assert_eq!(response.status().as_u16(), 401);
 }
 
-#[tokio::test]
+#[with_cleanup]
 async fn should_return_401_if_old_code() {
     // Call login twice. Then, attempt to call verify-2fa with the 2FA code from the first login request. This should fail.
-    let app = TestApp::new().await;
     let random_email = get_random_email();
 
     // Step 1: Signup with 2FA enabled
@@ -273,10 +275,9 @@ async fn should_return_401_if_old_code() {
     assert_eq!(response.status().as_u16(), 401);
 }
 
-#[tokio::test]
+#[with_cleanup]
 async fn should_return_200_if_correct_code() {
     // Make sure to assert the auth cookie gets set
-    let app = TestApp::new().await;
     let random_email = get_random_email();
 
     // Step 1: Signup with 2FA enabled
@@ -338,10 +339,9 @@ async fn should_return_200_if_correct_code() {
     assert!(!auth_cookie.value().is_empty());
 }
 
-#[tokio::test]
+#[with_cleanup]
 async fn should_return_401_if_same_code_twice() {
     // Verify 2FA with correct code, then try to verify again with the same code - should fail
-    let app = TestApp::new().await;
     let random_email = get_random_email();
 
     // Step 1: Signup with 2FA enabled

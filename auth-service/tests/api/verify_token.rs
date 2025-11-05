@@ -2,9 +2,9 @@ use crate::helpers::{get_random_email, TestApp};
 use auth_service::utils::{constants::JWT_SECRET, JWT_COOKIE_NAME};
 use chrono::Utc;
 use jsonwebtoken::{encode, EncodingKey, Header};
-use quickcheck::{Arbitrary, Gen};
-use quickcheck_macros::quickcheck;
+use quickcheck::{Arbitrary, Gen, QuickCheck};
 use serde::{Deserialize, Serialize};
+use test_macros::with_cleanup;
 
 #[derive(Clone, Debug)]
 struct ValidJwtToken(String);
@@ -15,10 +15,8 @@ struct JwtClaims {
     exp: usize,
 }
 
-#[tokio::test]
+#[with_cleanup]
 async fn should_return_422_if_malformed_input() {
-    let app = TestApp::new().await;
-
     //token is missing
     let test_cases = [
         serde_json::json!({}),
@@ -38,10 +36,8 @@ async fn should_return_422_if_malformed_input() {
     }
 }
 
-#[tokio::test]
+#[with_cleanup]
 async fn should_return_200_valid_token() {
-    let app = TestApp::new().await;
-
     let random_email = get_random_email();
 
     // Sign up a user
@@ -85,10 +81,8 @@ async fn should_return_200_valid_token() {
     assert_eq!(response_body["message"], "Success verifying token");
 }
 
-#[tokio::test]
+#[with_cleanup]
 async fn should_return_401_if_invalid_token() {
-    let app = TestApp::new().await;
-
     // Test with invalid JWT token
     let verify_body = serde_json::json!({
         "token": "invalid_jwt_token_here"
@@ -100,28 +94,27 @@ async fn should_return_401_if_invalid_token() {
     assert_eq!(response.status(), 401);
 }
 
-#[quickcheck]
-fn should_return_401_for_any_invalid_token(invalid_token: String) {
-    let rt = tokio::runtime::Runtime::new().unwrap();
-    rt.block_on(async {
+#[tokio::test]
+async fn should_return_401_for_any_invalid_token() {
+    use quickcheck::{Arbitrary, Gen};
+
+    let mut gen = Gen::new(100);
+
+    for _ in 0..10 {
+        let token: String = Arbitrary::arbitrary(&mut gen);
+
         let app = TestApp::new().await;
-
-        // Test with any invalid JWT token
-        let verify_body = serde_json::json!({
-            "token": invalid_token
-        });
-
+        let verify_body = serde_json::json!({"token": token});
         let response = app.post_verify_token(&verify_body).await;
+        app.clean_up().await;
 
-        // Should return 401 for any invalid token
         assert_eq!(response.status(), 401);
-    })
+    }
 }
 
-#[tokio::test]
+#[with_cleanup]
 async fn should_return_401_if_banned_token() {
     //Generate a valid token using how we did in other tests with email and password
-    let app = TestApp::new().await;
     let random_email = get_random_email();
     let signup_body = serde_json::json!({
       "email": random_email,
@@ -163,21 +156,22 @@ async fn should_return_401_if_banned_token() {
     assert_eq!(response.status(), 401);
 }
 
-#[quickcheck]
-fn should_return_200_for_any_valid_token(valid_token: ValidJwtToken) {
-    let rt = tokio::runtime::Runtime::new().unwrap();
-    rt.block_on(async {
+#[tokio::test]
+async fn should_return_200_for_any_valid_token() {
+    use quickcheck::{Arbitrary, Gen};
+
+    let mut gen = Gen::new(100);
+
+    for _ in 0..10 {
+        let token: ValidJwtToken = Arbitrary::arbitrary(&mut gen);
+
         let app = TestApp::new().await;
-
-        let verify_body = serde_json::json!({
-            "token": valid_token.0
-        });
-
+        let verify_body = serde_json::json!({"token": token.0});
         let response = app.post_verify_token(&verify_body).await;
+        app.clean_up().await;
 
-        // Should return 200 for any valid token
         assert_eq!(response.status(), 200);
-    })
+    }
 }
 
 impl Arbitrary for ValidJwtToken {

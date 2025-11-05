@@ -13,6 +13,33 @@ services:
     image: mattymatiman/auth-service
     restart: "always" # automatically restart container when server crashes
     environment:
-      JWT_SECRET: ${JWT_SECRET} # New!
+      JWT_SECRET: ${JWT_SECRET}
+      
+      DATABASE_URL: "postgres://postgres:${POSTGRES_PASSWORD}@ps-db:5432/db-1"
     ports:
       - "3000:3000" # expose port 3000 so that applications outside the container can connect to it
+    depends_on:
+      ps-db:
+        condition: service_healthy
+  ps-db:
+    container_name: ps-db
+    image: postgres:15.2-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: db-1  # Optional
+    ports:
+      - "5432:5432"
+    volumes:
+      - db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  db:
+    driver: local  
+

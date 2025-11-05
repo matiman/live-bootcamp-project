@@ -11,20 +11,34 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:15.2-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
     steps:
       # Checkout code from the repository
     - name: Checkout code
       uses: actions/checkout@v2
 
       # Cache dependencies to speed up build times
+      # Note: Workspace uses shared target/ directory at root, including test_macros
     - name: Cache dependencies
       uses: actions/cache@v3
       with:
         path: |
+          target/
           app-service/.cargo
-          app-service/target/
           auth-service/.cargo
-          auth-service/target/
         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
         restore-keys: ${{ runner.os }}-cargo-
 
@@ -41,6 +55,7 @@ jobs:
       working-directory: ./auth-service
       run: |
         export JWT_SECRET=secret
+        export DATABASE_URL="postgres://postgres:postgres@localhost:5432/postgres"
         cargo build --verbose
         cargo test --verbose
 

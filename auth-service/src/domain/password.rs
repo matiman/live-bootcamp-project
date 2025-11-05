@@ -13,6 +13,12 @@ impl Password {
         }
         Ok(Password(password.to_string()))
     }
+
+    /// Create a Password from a hash string without validation.
+    /// This is used when retrieving a user from the database where we only have the hash.
+    pub fn from_hash(hash: String) -> Self {
+        Password(hash)
+    }
 }
 
 impl AsRef<str> for Password {
