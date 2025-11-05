@@ -1,2 +1,3 @@
 [workspace]
 members = ["auth-service", "app-service", "test_macros"]
+resolver = "2"

@@ -46,18 +46,17 @@ jobs:
       run: rustup update stable && rustup default stable
 
     - name: Build and test app-service code
-      working-directory: ./app-service
       run: |
-        cargo build --verbose
-        cargo test --verbose
+        cargo build -p app-service --verbose
+        cargo test -p app-service --verbose
 
     - name: Build and test auth-service code
-      working-directory: ./auth-service
+      env:
+        JWT_SECRET: secret
+        DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
       run: |
-        export JWT_SECRET=secret
-        export DATABASE_URL="postgres://postgres:postgres@localhost:5432/postgres"
-        cargo build --verbose
-        cargo test --verbose
+        cargo build -p auth-service --verbose
+        cargo test -p auth-service --verbose
 
       # Set up Docker Buildx for multi-platform builds
     - name: Set up Docker Buildx
