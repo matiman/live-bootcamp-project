@@ -54,6 +54,7 @@ jobs:
       env:
         JWT_SECRET: secret
         DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+        SQLX_OFFLINE: true
       run: |
         cargo build -p auth-service --verbose
         cargo test -p auth-service --verbose
