@@ -6,39 +6,45 @@ on:
     branches:
       - main
   workflow_dispatch:
-
+# New! We want to make sure SQLx doesn't throw compile time errors so we force offline mode.
+env:
+  SQLX_OFFLINE: true
 jobs:
   build:
     runs-on: ubuntu-latest
 
     services:
       postgres:
+        # Docker Hub image
         image: postgres:15.2-alpine
+        # Environment variables scoped only for the `postgres` element
         env:
-          POSTGRES_PASSWORD: postgres
           POSTGRES_USER: postgres
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB: db-1
+        # Opens tcp port 5432 on the host and service container
         ports:
           - 5432:5432
-
+      redis:
+        image: redis:7.0-alpine
+        ports:
+          - 6379:6379
     steps:
       # Checkout code from the repository
     - name: Checkout code
       uses: actions/checkout@v2
 
       # Cache dependencies to speed up build times
-      # Note: Workspace uses shared target/ directory at root, including test_macros
+      # Note: auth-service is in a workspace with test_macros, so target/ is at workspace root
     - name: Cache dependencies
       uses: actions/cache@v3
       with:
         path: |
           target/
           app-service/.cargo
+          app-service/target/
           auth-service/.cargo
+          test_macros/.cargo
         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
         restore-keys: ${{ runner.os }}-cargo-
 
@@ -46,18 +52,18 @@ jobs:
       run: rustup update stable && rustup default stable
 
     - name: Build and test app-service code
+      working-directory: ./app-service
       run: |
-        cargo build -p app-service --verbose
-        cargo test -p app-service --verbose
+        cargo build --verbose
+        cargo test --verbose
 
     - name: Build and test auth-service code
-      env:
-        JWT_SECRET: secret
-        DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
-        SQLX_OFFLINE: true
+      working-directory: ./auth-service
       run: |
-        cargo build -p auth-service --verbose
-        cargo test -p auth-service --verbose
+        export JWT_SECRET=secret
+        export DATABASE_URL=postgres://postgres:${{ secrets.POSTGRES_PASSWORD }}@localhost:5432/db-1
+        cargo build --verbose
+        cargo test --verbose
 
       # Set up Docker Buildx for multi-platform builds
     - name: Set up Docker Buildx
@@ -110,6 +116,7 @@ jobs:
           cd ~
           export JWT_SECRET=${{ secrets.JWT_SECRET }}
           export AUTH_SERVICE_IP=${{ vars.DROPLET_IP }}
+          export POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
           docker compose down
           docker compose pull
           docker compose up -d

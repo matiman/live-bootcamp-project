@@ -78,6 +78,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sqlx",
+ "test_macros",
  "tokio",
  "tower-http",
  "uuid",
@@ -2253,6 +2254,15 @@ name = "synstructure"
 version = "0.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "728a70f3dbaf5bab7f0c4b1ac8d7ae5ea60a4b5549c8a5914361c99147a709d2"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "test_macros"
+version = "0.1.0"
 dependencies = [
  "proc-macro2",
  "quote",
