@@ -4,11 +4,7 @@ pub struct Password(String);
 impl Password {
     pub fn parse(password: &str) -> Result<Self, PasswordError> {
         let len = password.len();
-        if len < 8
-            || len > 128
-            || password.to_lowercase().contains("password")
-            || password.contains(" ")
-        {
+        if len < 8 || password.contains(" ") {
             return Err(PasswordError::InvalidPassword);
         }
         Ok(Password(password.to_string()))
@@ -37,8 +33,13 @@ mod tests {
 
     #[test]
     fn test_valid_passwords() {
-        let too_long = "a".repeat(127);
-        let valid_passwords = vec!["secureP@ss123", "MySecret99", "abcd1234", too_long.as_str()];
+        let long_password = "a".repeat(200); // Test that long passwords are now allowed
+        let valid_passwords = vec![
+            "secureP@ss123",
+            "MySecret99",
+            "abcd1234",
+            long_password.as_str(),
+        ];
 
         for pass in valid_passwords {
             let result = Password::parse(pass);
@@ -70,15 +71,10 @@ mod tests {
 
     #[test]
     fn test_invalid_passwords() {
-        let too_long = "a".repeat(129);
         let invalid_passwords = vec![
-            "short",         // too short (< 8)
-            "",              // empty
-            "has space",     // contains space
-            "mypassword123", // contains "password"
-            "PASSWORD123",
-            // contains "password" (case-insensitive)
-            too_long.as_str(), // too long (> 128)
+            "short",     // too short (< 8)
+            "",          // empty
+            "has space", // contains space
         ];
 
         for pass in invalid_passwords {

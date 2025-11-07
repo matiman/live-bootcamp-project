@@ -20,6 +20,7 @@ RUN cargo chef cook --release --recipe-path recipe.json --package auth-service
 COPY Cargo.toml Cargo.lock ./
 COPY auth-service/ ./auth-service/
 WORKDIR /app/auth-service
+ENV SQLX_OFFLINE true
 RUN cargo build --release --bin auth-service
 
 # We do not need the Rust toolchain to run the binary!

@@ -29,17 +29,17 @@ pub async fn login(
 
     let user_store = state.user_store.read().await;
 
+    //Check if user exists first
+    let user = match user_store.get_user(&email).await {
+        Ok(user) => user,
+        Err(_) => return (jar, Err(AuthAPIError::InvalidCredentials)),
+    };
+
     //Check if user credentials are correct. E.g password is correct.
     match user_store.validate_user(&email, &password).await {
         Ok(_) => {}
         Err(_) => return (jar, Err(AuthAPIError::IncorrectCredentials)),
     }
-
-    //Check if user exists
-    let user = match user_store.get_user(&email).await {
-        Ok(user) => user,
-        Err(_) => return (jar, Err(AuthAPIError::IncorrectCredentials)),
-    };
 
     // Call the generate_auth_cookie function defined in the auth module.
     // If the function call fails return AuthAPIError::UnexpectedError.
