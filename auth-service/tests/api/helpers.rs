@@ -12,7 +12,7 @@ use auth_service::{
 use reqwest::cookie::Jar;
 use sqlx::{postgres::PgConnectOptions, Connection, Executor, PgConnection};
 use sqlx::{postgres::PgPoolOptions, PgPool};
-use std::{str::FromStr, sync::Arc};
+use std::{cell::Cell, str::FromStr, sync::Arc};
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
@@ -23,6 +23,7 @@ pub struct TestApp {
     pub banned_token_store: BannedTokenStoreType,
     pub two_fa_code_store: TwoFACodeStoreType,
     pub db_name: String,
+    clean_up_called: Cell<bool>,
 }
 
 impl TestApp {
@@ -66,11 +67,13 @@ impl TestApp {
             banned_token_store,
             two_fa_code_store,
             db_name,
+            clean_up_called: Cell::new(false),
         }
     }
 
     pub async fn clean_up(&self) {
         delete_database(&self.db_name).await;
+        self.clean_up_called.set(true);
     }
 
     pub async fn get_root(&self) -> reqwest::Response {
@@ -138,6 +141,17 @@ impl TestApp {
     }
 
     // Implement helper functions for all other routes (signup, login, logout, verify-2fa, and verify-token)
+}
+
+impl Drop for TestApp {
+    fn drop(&mut self) {
+        if !self.clean_up_called.get() {
+            panic!(
+                "TestApp::clean_up() was not called! Database '{}' may not have been cleaned up.",
+                self.db_name
+            );
+        }
+    }
 }
 
 pub fn get_random_email() -> String {
