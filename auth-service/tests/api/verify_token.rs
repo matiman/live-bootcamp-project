@@ -36,6 +36,8 @@ async fn should_return_422_if_malformed_input() {
         // Assert that we get 422 Unprocessable Entity
         assert_eq!(response.status(), 422);
     }
+
+    app.clean_up().await;
 }
 
 #[tokio::test]
@@ -83,6 +85,8 @@ async fn should_return_200_valid_token() {
     // Parse and verify response
     let response_body: serde_json::Value = response.json().await.expect("Failed to parse response");
     assert_eq!(response_body["message"], "Success verifying token");
+
+    app.clean_up().await;
 }
 
 #[tokio::test]
@@ -98,6 +102,8 @@ async fn should_return_401_if_invalid_token() {
 
     // Assert that we get 401 Unauthorized
     assert_eq!(response.status(), 401);
+
+    app.clean_up().await;
 }
 
 #[quickcheck]
@@ -115,6 +121,8 @@ fn should_return_401_for_any_invalid_token(invalid_token: String) {
 
         // Should return 401 for any invalid token
         assert_eq!(response.status(), 401);
+
+        app.clean_up().await;
     })
 }
 
@@ -161,6 +169,8 @@ async fn should_return_401_if_banned_token() {
 
     // Should return 401 for banned token
     assert_eq!(response.status(), 401);
+
+    app.clean_up().await;
 }
 
 #[quickcheck]
@@ -177,6 +187,8 @@ fn should_return_200_for_any_valid_token(valid_token: ValidJwtToken) {
 
         // Should return 200 for any valid token
         assert_eq!(response.status(), 200);
+
+        app.clean_up().await;
     })
 }
 

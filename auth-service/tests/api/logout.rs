@@ -19,6 +19,8 @@ async fn should_return_400_if_jwt_cookie_missing() {
         .await
         .expect("Failed to parse error response");
     assert_eq!(error_response.error, "Missing token");
+
+    app.clean_up().await;
 }
 
 #[tokio::test]
@@ -46,6 +48,8 @@ async fn should_return_401_if_invalid_token() {
         .await
         .expect("Failed to parse error response");
     assert_eq!(error_response.error, "Invalid token");
+
+    app.clean_up().await;
 }
 
 #[tokio::test]
@@ -92,6 +96,8 @@ async fn should_return_200_if_valid_jwt_cookie() {
         .is_token_banned(&auth_cookie.value())
         .await
         .unwrap());
+
+    app.clean_up().await;
 }
 
 #[tokio::test]
@@ -133,4 +139,6 @@ async fn should_return_400_if_logout_called_twice_in_a_row() {
         .await
         .expect("Failed to parse error response");
     //assert_eq!(error_response.error, "Missing token");
+
+    app.clean_up().await;
 }

@@ -4,16 +4,15 @@ use auth_service::{
     },
     get_postgres_pool,
     services::{
-        HashSetBannedTokenStore, HashmapTwoFACodeStore, HashmapUserStore, MockEmailClient,
-        PostgresUserStore,
+        HashSetBannedTokenStore, HashmapTwoFACodeStore, MockEmailClient, PostgresUserStore,
     },
     utils::{test, DATABASE_URL},
     Application,
 };
 use reqwest::cookie::Jar;
-use sqlx::Executor;
+use sqlx::{postgres::PgConnectOptions, Connection, Executor, PgConnection};
 use sqlx::{postgres::PgPoolOptions, PgPool};
-use std::sync::Arc;
+use std::{str::FromStr, sync::Arc};
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
@@ -23,11 +22,12 @@ pub struct TestApp {
     pub http_client: reqwest::Client,
     pub banned_token_store: BannedTokenStoreType,
     pub two_fa_code_store: TwoFACodeStoreType,
+    pub db_name: String,
 }
 
 impl TestApp {
     pub async fn new() -> Self {
-        let pg_pool = configure_postgresql().await;
+        let (pg_pool, db_name) = configure_postgresql().await;
         let user_store = Arc::new(RwLock::new(PostgresUserStore::new(pg_pool))) as UserStoreType;
         let banned_token_store =
             Arc::new(RwLock::new(HashSetBannedTokenStore::default())) as BannedTokenStoreType;
@@ -65,7 +65,12 @@ impl TestApp {
             http_client,
             banned_token_store,
             two_fa_code_store,
+            db_name,
         }
+    }
+
+    pub async fn clean_up(&self) {
+        delete_database(&self.db_name).await;
     }
 
     pub async fn get_root(&self) -> reqwest::Response {
@@ -139,7 +144,7 @@ pub fn get_random_email() -> String {
     format!("{}@example.com", Uuid::new_v4())
 }
 
-async fn configure_postgresql() -> PgPool {
+async fn configure_postgresql() -> (PgPool, String) {
     let mut postgresql_conn_url = DATABASE_URL.to_owned();
 
     // Replace 'db' hostname with 'localhost' for local testing
@@ -155,22 +160,25 @@ async fn configure_postgresql() -> PgPool {
     // Use the base URL and add the new database name
     let postgresql_conn_url_with_db = format!("{}/{}", postgresql_conn_url, db_name);
 
-    // Create a new connection pool and return it
-    get_postgres_pool(&postgresql_conn_url_with_db)
+    // Create a new connection pool and return it along with the database name
+    let pool = get_postgres_pool(&postgresql_conn_url_with_db)
         .await
-        .expect("Failed to create Postgres connection pool!")
+        .expect("Failed to create Postgres connection pool!");
+    (pool, db_name)
 }
 
 async fn configure_database(db_conn_string: &str, db_name: &str) {
-    // Create database connection
-    let connection = PgPoolOptions::new()
-        .connect(db_conn_string)
+    // Create database connection to default postgres database
+    let connection_options = PgConnectOptions::from_str(db_conn_string)
+        .expect("Failed to parse PostgreSQL connection string");
+
+    let mut connection = PgConnection::connect_with(&connection_options)
         .await
-        .expect("Failed to create Postgres connection pool.");
+        .expect("Failed to connect to Postgres");
 
     // Create a new database
-    connection
-        .execute(format!(r#"CREATE DATABASE "{}";"#, db_name).as_str())
+    sqlx::query(&format!(r#"CREATE DATABASE "{}";"#, db_name))
+        .execute(&mut connection)
         .await
         .expect("Failed to create database.");
 
@@ -190,4 +198,41 @@ async fn configure_database(db_conn_string: &str, db_name: &str) {
         .run(&connection)
         .await
         .expect("Failed to migrate the database");
+}
+
+async fn delete_database(db_name: &str) {
+    let mut postgresql_conn_url = DATABASE_URL.to_owned();
+
+    // Replace 'db' hostname with 'localhost' for local testing
+    postgresql_conn_url = postgresql_conn_url.replace("@db:", "@localhost:");
+
+    // Connect to default 'postgres' database to drop the test database
+    let postgresql_conn_url_without_db = format!("{}/postgres", postgresql_conn_url);
+
+    let connection_options = PgConnectOptions::from_str(&postgresql_conn_url_without_db)
+        .expect("Failed to parse PostgreSQL connection string");
+
+    let mut connection = PgConnection::connect_with(&connection_options)
+        .await
+        .expect("Failed to connect to Postgres");
+
+    // Kill any active connections to the database
+    sqlx::query(&format!(
+        r#"
+                SELECT pg_terminate_backend(pg_stat_activity.pid)
+                FROM pg_stat_activity
+                WHERE pg_stat_activity.datname = '{}'
+                  AND pid <> pg_backend_pid();
+        "#,
+        db_name
+    ))
+    .execute(&mut connection)
+    .await
+    .expect("Failed to terminate connections to the database.");
+
+    // Drop the database
+    sqlx::query(&format!(r#"DROP DATABASE "{}";"#, db_name))
+        .execute(&mut connection)
+        .await
+        .expect("Failed to drop the database.");
 }
