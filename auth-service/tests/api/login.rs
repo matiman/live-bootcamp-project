@@ -73,7 +73,7 @@ async fn should_return_401_if_incorrect_credentials() {
     let app = TestApp::new().await;
 
     let signup_test_case = serde_json::json!({
-        "email": "abcdfd@gmail.com",
+        "email": "abc@gmail.com",
         "password": "paswsddord123",
         "requires2FA": true
     });
