@@ -1,5 +1,5 @@
 # Start with image that has the Rust toolchain installed
-FROM rust:1.85-alpine AS chef
+FROM rust:1.88-alpine AS chef
 USER root
 # Add cargo-chef to cache dependencies
 RUN apk add --no-cache musl-dev & cargo install cargo-chef
@@ -28,4 +28,5 @@ FROM debian:buster-slim AS runtime
 WORKDIR /app
 COPY --from=builder /app/target/release/auth-service /usr/local/bin
 COPY --from=builder /app/auth-service/assets /app/assets
+COPY --from=builder /app/auth-service/migrations ./migrations
 ENTRYPOINT ["/usr/local/bin/auth-service"]
