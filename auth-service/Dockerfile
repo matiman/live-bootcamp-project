@@ -7,9 +7,10 @@ WORKDIR /app
 
 FROM chef AS planner
 COPY Cargo.toml Cargo.lock ./
+COPY app-service/ ./app-service/
 COPY auth-service/ ./auth-service/
-# Capture info needed to build dependencies
-RUN cargo chef prepare --recipe-path recipe.json --package auth-service
+# Capture info needed to build dependencies (prepare for entire workspace)
+RUN cargo chef prepare --recipe-path recipe.json
 
 FROM chef AS builder
 COPY --from=planner /app/recipe.json recipe.json
