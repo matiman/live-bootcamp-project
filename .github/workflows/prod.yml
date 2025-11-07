@@ -21,11 +21,9 @@ jobs:
       uses: actions/cache@v3
       with:
         path: |
-          app-service/.cargo
-          app-service/target/
-          auth-service/.cargo
-          auth-service/target/
-        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          .cargo
+          target/
+        key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock', '**/Cargo.toml') }}
         restore-keys: ${{ runner.os }}-cargo-
 
     - name: Install Rust
