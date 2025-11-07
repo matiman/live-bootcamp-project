@@ -30,4 +30,5 @@ WORKDIR /app
 COPY --from=builder /app/target/release/auth-service /usr/local/bin
 COPY --from=builder /app/auth-service/assets /app/assets
 COPY --from=builder /app/auth-service/migrations ./migrations
+ENV REDIS_HOST_NAME=redis
 ENTRYPOINT ["/usr/local/bin/auth-service"]

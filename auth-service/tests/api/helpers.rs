@@ -2,9 +2,10 @@ use auth_service::{
     app_state::{
         AppState, BannedTokenStoreType, EmailClientType, TwoFACodeStoreType, UserStoreType,
     },
-    get_postgres_pool,
+    get_postgres_pool, get_redis_client,
     services::{
-        HashSetBannedTokenStore, HashmapTwoFACodeStore, MockEmailClient, PostgresUserStore,
+        redis_banned_token_store::RedisBannedTokenStore, HashSetBannedTokenStore,
+        HashmapTwoFACodeStore, MockEmailClient, PostgresUserStore,
     },
     utils::{test, DATABASE_URL},
     Application,
@@ -29,9 +30,13 @@ pub struct TestApp {
 impl TestApp {
     pub async fn new() -> Self {
         let (pg_pool, db_name) = configure_postgresql().await;
+        let redis_conn = configure_redis();
+
         let user_store = Arc::new(RwLock::new(PostgresUserStore::new(pg_pool))) as UserStoreType;
-        let banned_token_store =
-            Arc::new(RwLock::new(HashSetBannedTokenStore::default())) as BannedTokenStoreType;
+
+        let banned_token_store = Arc::new(RwLock::new(RedisBannedTokenStore::new(Arc::new(
+            RwLock::new(redis_conn),
+        )))) as BannedTokenStoreType;
         let two_fa_code_store =
             Arc::new(RwLock::new(HashmapTwoFACodeStore::default())) as TwoFACodeStoreType;
         let email_client = Arc::new(RwLock::new(MockEmailClient {})) as EmailClientType;
@@ -156,6 +161,13 @@ impl Drop for TestApp {
 
 pub fn get_random_email() -> String {
     format!("{}@example.com", Uuid::new_v4())
+}
+
+fn configure_redis() -> redis::Connection {
+    get_redis_client(test::DEFAULT_REDIS_HOSTNAME.to_owned())
+        .expect("Failed to get Redis client")
+        .get_connection()
+        .expect("Failed to get Redis connection")
 }
 
 async fn configure_postgresql() -> (PgPool, String) {
