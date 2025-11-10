@@ -14,7 +14,8 @@ use crate::{
 };
 use serde::{Deserialize, Serialize};
 use std::error::Error;
-use tower_http::{cors::CorsLayer, services::ServeDir};
+use tower_http::{cors::CorsLayer, services::ServeDir, trace::TraceLayer};
+use utils::tracing::{make_span_with_request_id, on_request, on_response};
 
 pub mod app_state;
 pub mod domain;
@@ -55,6 +56,15 @@ impl Application {
             .route("/verify-token", post(verify_token))
             .with_state(app_state)
             .layer(cors)
+            .layer(
+                // Add a TraceLayer for HTTP requests to enable detailed tracing
+                // This layer will create spans for each request using the make_span_with_request_id function,
+                // and log events at the start and end of each request using on_request and on_response functions.
+                TraceLayer::new_for_http()
+                    .make_span_with(make_span_with_request_id)
+                    .on_request(on_request)
+                    .on_response(on_response),
+            )
             .fallback_service(ServeDir::new("assets"));
         let listener = tokio::net::TcpListener::bind(address).await?;
         let address = listener.local_addr()?.to_string();
@@ -69,7 +79,7 @@ impl Application {
     }
 
     pub async fn run(self) -> Result<(), std::io::Error> {
-        println!("listening on {}", &self.address);
+        tracing::info!("listening on {}", &self.address);
         axum::serve(self.listener, self.router)
             .await
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
