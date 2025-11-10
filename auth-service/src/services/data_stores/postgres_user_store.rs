@@ -1,4 +1,4 @@
-use std::error::Error;
+use color_eyre::eyre::{eyre, Result};
 
 use argon2::{
     password_hash::SaltString, Algorithm, Argon2, Params, PasswordHash, PasswordHasher,
@@ -26,64 +26,49 @@ impl PostgresUserStore {
 impl UserStore for PostgresUserStore {
     #[tracing::instrument(name = "Adding user to PostgreSQL", skip_all)]
     async fn add_user(&mut self, user: User) -> Result<(), UserStoreError> {
-        // Check if user already exists
-        let existing_user = sqlx::query!(
-            "SELECT email FROM users WHERE email = $1",
-            user.email.as_ref() as &str
-        )
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(|_| UserStoreError::UnexpectedError)?;
-
-        if existing_user.is_some() {
-            return Err(UserStoreError::UserAlreadyExists);
-        }
-
-        // Hash the password before storing
-        let password_hash = compute_password_hash(user.password.as_ref().to_string())
+        let password_hash = compute_password_hash(user.password.as_ref().to_owned())
             .await
-            .map_err(|_| UserStoreError::UnexpectedError)?;
+            .map_err(UserStoreError::UnexpectedError)?; // Updated!
 
-        // Insert the user into the database
         sqlx::query!(
-            "INSERT INTO users (email, password_hash, requires_2fa) VALUES ($1, $2, $3)",
-            user.email.as_ref() as &str,
-            password_hash,
+            r#"
+            INSERT INTO users (email, password_hash, requires_2fa)
+            VALUES ($1, $2, $3)
+            "#,
+            user.email.as_ref(),
+            &password_hash,
             user.requires_2fa
         )
         .execute(&self.pool)
         .await
-        .map_err(|_| UserStoreError::UnexpectedError)?;
+        .map_err(|e| UserStoreError::UnexpectedError(e.into()))?; // Updated!
 
         Ok(())
     }
 
     #[tracing::instrument(name = "Retrieving user from PostgreSQL", skip_all)]
     async fn get_user(&self, email: &Email) -> Result<User, UserStoreError> {
-        let user_row = sqlx::query!(
-            "SELECT email, password_hash, requires_2fa FROM users WHERE email = $1",
-            email.as_ref() as &str
+        sqlx::query!(
+            r#"
+            SELECT email, password_hash, requires_2fa
+            FROM users
+            WHERE email = $1
+            "#,
+            email.as_ref()
         )
         .fetch_optional(&self.pool)
         .await
-        .map_err(|_| UserStoreError::UnexpectedError)?;
-
-        match user_row {
-            Some(row) => {
-                let user_email =
-                    Email::parse(&row.email).map_err(|_| UserStoreError::UnexpectedError)?;
-
-                let password = Password::parse(&row.password_hash)
-                    .map_err(|_| UserStoreError::UnexpectedError)?;
-
-                Ok(User {
-                    email: user_email,
-                    password,
-                    requires_2fa: row.requires_2fa,
-                })
-            }
-            None => Err(UserStoreError::UserNotFound),
-        }
+        .map_err(|e| UserStoreError::UnexpectedError(e.into()))?
+        .map(|row| {
+            Ok(User {
+                email: Email::parse(&row.email)
+                    .map_err(|e| UserStoreError::UnexpectedError(eyre!("{:?}", e)))?, // Updated!
+                password: Password::parse(&row.password_hash)
+                    .map_err(|e| UserStoreError::UnexpectedError(eyre!("{:?}", e)))?, // Updated!
+                requires_2fa: row.requires_2fa,
+            })
+        })
+        .ok_or(UserStoreError::UserNotFound)?
     }
 
     #[tracing::instrument(name = "Validating user credentials in PostgreSQL", skip_all)]
@@ -99,7 +84,7 @@ impl UserStore for PostgresUserStore {
         )
         .fetch_optional(&self.pool)
         .await
-        .map_err(|_| UserStoreError::UnexpectedError)?;
+        .map_err(|e| UserStoreError::UnexpectedError(e.into()))?;
 
         let stored_password_hash = match user_row {
             Some(row) => row.password_hash,
@@ -115,13 +100,12 @@ impl UserStore for PostgresUserStore {
     }
 }
 
-
 // Uses spawn_blocking to avoid blocking async tasks during CPU-intensive hashing
 #[tracing::instrument(name = "Verify password hash", skip_all)] // New!
 async fn verify_password_hash(
     expected_password_hash: String,
     password_candidate: String,
-) -> Result<(), Box<dyn Error + Send + Sync>> {
+) -> Result<()> {
     // This line retrieves the current span from the tracing context.
     // The span represents the execution context for the compute_password_hash function.
     let current_span: tracing::Span = tracing::Span::current(); // New!
@@ -145,7 +129,7 @@ async fn verify_password_hash(
 // Helper function to hash passwords before persisting them in the database.
 // Uses spawn_blocking to avoid blocking async tasks during CPU-intensive hashing
 #[tracing::instrument(name = "Computing password hash", skip_all)] //New!
-async fn compute_password_hash(password: String) -> Result<String, Box<dyn Error + Send + Sync>> {
+async fn compute_password_hash(password: String) -> Result<String> {
     // This line retrieves the current span from the tracing context.
     // The span represents the execution context for the compute_password_hash function.
     let current_span: tracing::Span = tracing::Span::current(); // New!
@@ -164,7 +148,8 @@ async fn compute_password_hash(password: String) -> Result<String, Box<dyn Error
             .hash_password(password.as_bytes(), &salt)?
             .to_string();
 
-            Ok(password_hash)
+            //Ok(password_hash)
+            Err(eyre!("oh no!"))
         })
     })
     .await;
