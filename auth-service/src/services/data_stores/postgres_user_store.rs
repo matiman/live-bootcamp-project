@@ -115,7 +115,7 @@ impl UserStore for PostgresUserStore {
     }
 }
 
-// Helper function to verify if a given password matches an expected hash
+
 // Uses spawn_blocking to avoid blocking async tasks during CPU-intensive hashing
 #[tracing::instrument(name = "Verify password hash", skip_all)] // New!
 async fn verify_password_hash(
