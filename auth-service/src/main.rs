@@ -10,7 +10,7 @@ use auth_service::{
         redis_two_fa_code_store::RedisTwoFACodeStore, HashSetBannedTokenStore, HashmapUserStore,
         MockEmailClient, PostgresUserStore,
     },
-    utils::{prod, DATABASE_URL, REDIS_HOST_NAME},
+    utils::{init_tracing, prod, DATABASE_URL, REDIS_HOST_NAME},
     Application,
 };
 use sqlx::PgPool;
@@ -18,6 +18,9 @@ use tokio::sync::RwLock;
 
 #[tokio::main]
 async fn main() {
+    color_eyre::install().expect("Failed to install color_eyre");
+    init_tracing().expect("Failed to initialize tracing");
+    
     let pg_pool = configure_postgresql().await;
     let redis_conn = configure_redis();
     let shared_redis_conn = Arc::new(RwLock::new(redis_conn));

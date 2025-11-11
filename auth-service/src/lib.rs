@@ -14,7 +14,8 @@ use crate::{
 };
 use serde::{Deserialize, Serialize};
 use std::error::Error;
-use tower_http::{cors::CorsLayer, services::ServeDir};
+use tower_http::{cors::CorsLayer, services::ServeDir, trace::TraceLayer};
+use utils::tracing::{make_span_with_request_id, on_request, on_response};
 
 pub mod app_state;
 pub mod domain;
@@ -49,12 +50,21 @@ impl Application {
 
         let router = Router::new()
             .route("/signup", post(signup))
-            .route("/login", post(login))
-            .route("/verify-2fa", post(verify_2fa))
-            .route("/logout", post(logout))
+            //.route("/login", post(login))
+            //.route("/verify-2fa", post(verify_2fa))
+            //.route("/logout", post(logout))
             .route("/verify-token", post(verify_token))
             .with_state(app_state)
             .layer(cors)
+            .layer(
+                // Add a TraceLayer for HTTP requests to enable detailed tracing
+                // This layer will create spans for each request using the make_span_with_request_id function,
+                // and log events at the start and end of each request using on_request and on_response functions.
+                TraceLayer::new_for_http()
+                    .make_span_with(make_span_with_request_id)
+                    .on_request(on_request)
+                    .on_response(on_response),
+            )
             .fallback_service(ServeDir::new("assets"));
         let listener = tokio::net::TcpListener::bind(address).await?;
         let address = listener.local_addr()?.to_string();
@@ -69,7 +79,7 @@ impl Application {
     }
 
     pub async fn run(self) -> Result<(), std::io::Error> {
-        println!("listening on {}", &self.address);
+        tracing::info!("listening on {}", &self.address);
         axum::serve(self.listener, self.router)
             .await
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
@@ -83,6 +93,7 @@ pub struct ErrorResponse {
 
 impl IntoResponse for AuthAPIError {
     fn into_response(self) -> Response {
+        log_error_chain(&self);
         let (status, error_message) = match self {
             AuthAPIError::UserAlreadyExists => (StatusCode::CONFLICT, "User already exists"),
             AuthAPIError::InvalidCredentials => (StatusCode::BAD_REQUEST, "Invalid credentials"),
@@ -91,7 +102,7 @@ impl IntoResponse for AuthAPIError {
             }
             AuthAPIError::MissingToken => (StatusCode::BAD_REQUEST, "Missing token"),
             AuthAPIError::InvalidToken => (StatusCode::UNAUTHORIZED, "Invalid token"),
-            AuthAPIError::UnexpectedError => {
+            AuthAPIError::UnexpectedError(_) => {
                 (StatusCode::INTERNAL_SERVER_ERROR, "Unexpected error")
             }
             AuthAPIError::TokenAlreadyBanned => (StatusCode::UNAUTHORIZED, "Token already banned"),
@@ -117,4 +128,18 @@ pub async fn get_postgres_pool(url: &str) -> Result<PgPool, sqlx::Error> {
 pub fn get_redis_client(redis_hostname: String) -> RedisResult<Client> {
     let redis_url = format!("redis://{}/", redis_hostname);
     redis::Client::open(redis_url)
+}
+
+fn log_error_chain(e: &(dyn Error + 'static)) {
+    let separator =
+        "\n-----------------------------------------------------------------------------------\n";
+    let mut report = format!("{}{:?}\n", separator, e);
+    let mut current = e.source();
+    while let Some(cause) = current {
+        let str = format!("Caused by:\n\n{:?}", cause);
+        report = format!("{}\n{}", report, str);
+        current = cause.source();
+    }
+    report = format!("{}\n{}", report, separator);
+    tracing::error!("{}", report);
 }

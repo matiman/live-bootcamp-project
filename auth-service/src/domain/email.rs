@@ -1,6 +1,5 @@
-//Email should be a tuple struct.
-
-//use serde::{Deserialize, Serialize};
+use color_eyre::eyre::Report;
+use thiserror::Error;
 use validator::ValidateEmail;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
@@ -32,12 +31,23 @@ impl AsRef<str> for Email {
         &self.0
     }
 }
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Error)]
 pub enum EmailError {
+    #[error("Invalid email")]
     InvalidEmail(String),
-    UnexpectedError,
+    #[error("Unexpected error")]
+    UnexpectedError(#[source] color_eyre::eyre::Report),
 }
 
+impl PartialEq for EmailError {
+    fn eq(&self, other: &Self) -> bool {
+        matches!(
+            (self, other),
+            (Self::InvalidEmail(_), Self::InvalidEmail(_))
+                | (Self::UnexpectedError(_), Self::UnexpectedError(_))
+        )
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -1,3 +1,5 @@
+use color_eyre::eyre::Report;
+use thiserror::Error;
 #[derive(Debug, PartialEq, Clone)]
 pub struct Password(String);
 
@@ -5,7 +7,10 @@ impl Password {
     pub fn parse(password: &str) -> Result<Self, PasswordError> {
         let len = password.len();
         if len < 8 || password.contains(" ") {
-            return Err(PasswordError::InvalidPassword);
+            return Err(PasswordError::InvalidPassword(format!(
+                "{} is invalid password",
+                password
+            )));
         }
         Ok(Password(password.to_string()))
     }
@@ -17,10 +22,22 @@ impl AsRef<str> for Password {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Error)]
 pub enum PasswordError {
-    InvalidPassword,
-    UnexpectedError,
+    #[error("Invalid password")]
+    InvalidPassword(String),
+    #[error("Unexpected error")]
+    UnexpectedError(#[source] color_eyre::eyre::Report),
+}
+
+impl PartialEq for PasswordError {
+    fn eq(&self, other: &Self) -> bool {
+        matches!(
+            (self, other),
+            (Self::InvalidPassword(_), Self::InvalidPassword(_))
+                | (Self::UnexpectedError(_), Self::UnexpectedError(_))
+        )
+    }
 }
 #[cfg(test)]
 mod tests {
@@ -81,7 +98,7 @@ mod tests {
             let result = Password::parse(pass);
             assert_eq!(
                 result,
-                Err(PasswordError::InvalidPassword),
+                Err(PasswordError::InvalidPassword(pass.to_string())),
                 "Should reject invalid password: {}",
                 pass
             );
