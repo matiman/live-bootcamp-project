@@ -1,16 +1,14 @@
-use color_eyre::eyre::Report;
+use color_eyre::eyre::{eyre, Result};
 use thiserror::Error;
+
 #[derive(Debug, PartialEq, Clone)]
 pub struct Password(String);
 
 impl Password {
-    pub fn parse(password: &str) -> Result<Self, PasswordError> {
+    pub fn parse(password: &str) -> Result<Self> {
         let len = password.len();
         if len < 8 || password.contains(" ") {
-            return Err(PasswordError::InvalidPassword(format!(
-                "{} is invalid password",
-                password
-            )));
+            return Err(eyre!("{} is invalid password", password));
         }
         Ok(Password(password.to_string()))
     }
@@ -96,9 +94,8 @@ mod tests {
 
         for pass in invalid_passwords {
             let result = Password::parse(pass);
-            assert_eq!(
-                result,
-                Err(PasswordError::InvalidPassword(pass.to_string())),
+            assert!(
+                result.is_err(),
                 "Should reject invalid password: {}",
                 pass
             );

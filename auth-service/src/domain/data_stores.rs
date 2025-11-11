@@ -1,7 +1,7 @@
 use crate::domain::{Email, Password};
 
 use super::User;
-use color_eyre::eyre::Report;
+use color_eyre::eyre::{eyre, Context, Report, Result};
 use rand::Rng;
 use thiserror::Error;
 
@@ -36,21 +36,33 @@ pub trait TwoFACodeStore {
     ) -> Result<(LoginAttemptId, TwoFACode), TwoFACodeStoreError>;
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Error)]
 pub enum TwoFACodeStoreError {
+    #[error("Login Attempt ID not found")]
     LoginAttemptIdNotFound,
-    UnexpectedError,
+    #[error("Unexpected error")]
+    UnexpectedError(#[source] Report),
+}
+
+// New!
+impl PartialEq for TwoFACodeStoreError {
+    fn eq(&self, other: &Self) -> bool {
+        matches!(
+            (self, other),
+            (Self::LoginAttemptIdNotFound, Self::LoginAttemptIdNotFound)
+                | (Self::UnexpectedError(_), Self::UnexpectedError(_))
+        )
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct LoginAttemptId(String);
 
 impl LoginAttemptId {
-    pub fn parse(id: String) -> Result<Self, String> {
+    pub fn parse(id: String) -> Result<Self> {
         // Use the `parse_str` function from the `uuid` crate to ensure `id` is a valid UUID
-        uuid::Uuid::parse_str(&id)
-            .map(|uuid| LoginAttemptId(uuid.to_string()))
-            .map_err(|_| "Invalid UUID".to_string())
+        let parsed_id = uuid::Uuid::parse_str(&id).wrap_err("Invalid login attempt id")?; // Updated!
+        Ok(Self(parsed_id.to_string()))
     }
 }
 
@@ -70,15 +82,13 @@ impl AsRef<str> for LoginAttemptId {
 pub struct TwoFACode(String);
 
 impl TwoFACode {
-    pub fn parse(code: String) -> Result<Self, String> {
-        // Ensure `code` is a valid 6-digit code
-        let code_as_u32 = code
-            .parse::<u32>()
-            .map_err(|_| "Invalid code. 2FA code should be 6 digits".to_string())?;
+    pub fn parse(code: String) -> Result<Self> {
+        let code_as_u32 = code.parse::<u32>().wrap_err("Invalid 2FA code")?;
+
         if (100_000..=999_999).contains(&code_as_u32) {
             Ok(Self(code))
         } else {
-            return Err("Invalid code. 2FA code should be 6 digits".to_string());
+            Err(eyre!("Invalid 2FA code"))
         }
     }
 }
@@ -123,9 +133,23 @@ impl PartialEq for UserStoreError {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Error)]
 pub enum BannedTokenStoreError {
+    #[error("Token already banned")]
     TokenAlreadyBanned,
+    #[error("Token not found")]
     TokenNotFound,
-    UnexpectedError,
+    #[error("Unexpected error")]
+    UnexpectedError(#[source] Report),
+}
+
+impl PartialEq for BannedTokenStoreError {
+    fn eq(&self, other: &Self) -> bool {
+        matches!(
+            (self, other),
+            (Self::TokenAlreadyBanned, Self::TokenAlreadyBanned)
+                | (Self::TokenNotFound, Self::TokenNotFound)
+                | (Self::UnexpectedError(_), Self::UnexpectedError(_))
+        )
+    }
 }

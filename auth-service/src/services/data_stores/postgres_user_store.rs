@@ -72,11 +72,11 @@ impl UserStore for PostgresUserStore {
 
         match user_row {
             Some(row) => {
-                let user_email = Email::parse(&row.email)
-                    .map_err(|e| UserStoreError::UnexpectedError(eyre!("{:?}", e)))?;
+                let user_email =
+                    Email::parse(&row.email).map_err(|e| UserStoreError::UnexpectedError(e))?;
 
                 let password = Password::parse(&row.password_hash)
-                    .map_err(|e| UserStoreError::UnexpectedError(eyre!("{:?}", e)))?;
+                    .map_err(|e| UserStoreError::UnexpectedError(e))?;
 
                 Ok(User {
                     email: user_email,

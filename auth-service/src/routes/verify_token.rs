@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{app_state::AppState, domain::AuthAPIError, utils::auth::validate_token};
 
+#[tracing::instrument(name = "Verify Token", skip_all)]
 pub async fn verify_token(
     State(state): State<AppState>,
     Json(request): Json<VerifyTokenRequest>,
@@ -15,7 +16,6 @@ pub async fn verify_token(
             };
             Ok((StatusCode::OK, Json(response)))
         }
-        Err(crate::utils::auth::TokenError::BannedTokenError) => Err(AuthAPIError::InvalidToken),
         Err(_) => Err(AuthAPIError::InvalidToken),
     }
 }

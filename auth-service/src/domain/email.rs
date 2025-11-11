@@ -1,4 +1,4 @@
-use color_eyre::eyre::Report;
+use color_eyre::eyre::{eyre, Result};
 use thiserror::Error;
 use validator::ValidateEmail;
 
@@ -7,13 +7,10 @@ pub struct Email(String);
 
 impl Email {
     /// Parse and validate an email address
-    pub fn parse(address: &str) -> Result<Self, EmailError> {
+    pub fn parse(address: &str) -> Result<Self> {
         // Validate using the validator crate
         if !ValidateEmail::validate_email(&address) {
-            return Err(EmailError::InvalidEmail(format!(
-                "{} is invalid email",
-                address
-            )));
+            return Err(eyre!("{} is invalid email", address));
         }
 
         Ok(Self(address.to_string()))

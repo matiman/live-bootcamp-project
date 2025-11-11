@@ -50,9 +50,9 @@ impl Application {
 
         let router = Router::new()
             .route("/signup", post(signup))
-            //.route("/login", post(login))
-            //.route("/verify-2fa", post(verify_2fa))
-            //.route("/logout", post(logout))
+            .route("/login", post(login))
+            .route("/verify-2fa", post(verify_2fa))
+            .route("/logout", post(logout))
             .route("/verify-token", post(verify_token))
             .with_state(app_state)
             .layer(cors)
