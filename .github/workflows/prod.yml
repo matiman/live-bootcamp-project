@@ -54,16 +54,20 @@ jobs:
 
     - name: Build and test app-service code
       working-directory: ./app-service
+      env:
+        CARGO_TARGET_DIR: ${{ github.workspace }}/target
       run: |
         cargo build --verbose
         cargo test --verbose
 
     - name: Build and test auth-service code
       working-directory: ./auth-service
+      env:
+        CARGO_TARGET_DIR: ${{ github.workspace }}/target
+        JWT_SECRET: secret
+        DATABASE_URL: postgres://postgres:${{ secrets.POSTGRES_PASSWORD }}@localhost:5432
+        REDIS_HOST_NAME: localhost
       run: |
-        export JWT_SECRET=secret
-        export DATABASE_URL=postgres://postgres:${{ secrets.POSTGRES_PASSWORD }}@localhost:5432
-        export REDIS_HOST_NAME=localhost
         cargo build --verbose
         cargo test --verbose
 

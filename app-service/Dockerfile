@@ -20,6 +20,9 @@ RUN cargo chef cook --release --recipe-path recipe.json --package app-service
 COPY Cargo.toml Cargo.lock ./
 COPY app-service/ ./app-service/
 WORKDIR /app/app-service
+ENV CARGO_TARGET_DIR=/app/target
+ENV CARGO_NET_GIT_FETCH_WITH_CLI=true
+ENV CARGO_BUILD_JOBS=4
 RUN cargo build --release --bin app-service
 
 # We do not need the Rust toolchain to run the binary!
