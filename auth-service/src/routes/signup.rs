@@ -1,4 +1,5 @@
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
+use secrecy::Secret;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -15,8 +16,9 @@ pub async fn signup(
     let password = request.password;
 
     //USE Email and Passowrd parse method
-    let email = Email::parse(&email).map_err(|_| AuthAPIError::InvalidCredentials)?;
-    let password = Password::parse(&password).map_err(|_| AuthAPIError::InvalidCredentials)?;
+    let email = Email::parse(Secret::new(email.to_string()))
+        .map_err(|_| AuthAPIError::InvalidCredentials)?;
+    let password = Password::parse(password).map_err(|_| AuthAPIError::InvalidCredentials)?;
 
     // Create a new `User` instance using data in the `request`
     let user = User {
@@ -52,7 +54,7 @@ pub struct SignupResponse {
 #[derive(Deserialize)]
 pub struct SignupRequest {
     pub email: String,
-    pub password: String,
+    pub password: Secret<String>,
     #[serde(rename = "requires2FA")]
     pub requires_2fa: bool,
 }

@@ -44,7 +44,7 @@ impl UserStore for HashmapUserStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-
+    use secrecy::Secret;
     #[tokio::test]
     async fn test_add_user() {
         let mut store = HashmapUserStore::default();
@@ -66,7 +66,7 @@ mod tests {
         assert_eq!(store.get_user(&user.email).await, Ok(user));
         assert_eq!(
             store
-                .get_user(&Email::parse("invalid_email@gmail.com").unwrap())
+                .get_user(&Email::parse(Secret::new("invalid_email@gmail.com".to_string())).unwrap())
                 .await,
             Err(UserStoreError::UserNotFound)
         );
@@ -83,7 +83,10 @@ mod tests {
         );
         assert_eq!(
             store
-                .validate_user(&user.email, &Password::parse("wrfddfonord").unwrap())
+                .validate_user(
+                    &user.email,
+                    &Password::parse(Secret::new("wrfddfonord".to_string())).unwrap()
+                )
                 .await,
             Err(UserStoreError::InvalidCredentials)
         );

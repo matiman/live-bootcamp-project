@@ -5,6 +5,7 @@ use auth_service::{
 };
 use quickcheck::{Arbitrary, Gen};
 use quickcheck_macros::quickcheck;
+use secrecy::Secret;
 use serde_json::Value;
 
 use crate::helpers::{get_random_email, TestApp};
@@ -175,7 +176,7 @@ async fn should_return_401_if_incorrect_credentials() {
         .expect("Could not parse login_attempt_id");
 
     // Step 3: Get the actual login_attempt_id from the store to verify it matches
-    let email = Email::parse(&random_email).unwrap();
+    let email = Email::parse(Secret::new(random_email.to_string())).unwrap();
     let stored_login_attempt_id = {
         let two_fa_code_store = app.two_fa_code_store.write().await;
         let (stored_login_attempt_id, _stored_two_fa_code) = two_fa_code_store
@@ -233,7 +234,7 @@ async fn should_return_401_if_old_code() {
         .expect("Could not parse login_attempt_id");
 
     // Get the first 2FA code from store
-    let email = Email::parse(&random_email).unwrap();
+    let email = Email::parse(Secret::new(random_email.to_string())).unwrap();
     let (first_stored_login_attempt_id, first_stored_code) = {
         let two_fa_code_store = app.two_fa_code_store.write().await;
         let result = two_fa_code_store
@@ -316,7 +317,7 @@ async fn should_return_200_if_correct_code() {
         .expect("Could not parse login_attempt_id");
 
     // Step 3: Get the actual 2FA code from the store
-    let email = Email::parse(&random_email).unwrap();
+    let email = Email::parse(Secret::new(random_email.to_string())).unwrap();
     let (stored_login_attempt_id, stored_two_fa_code) = {
         let two_fa_code_store = app.two_fa_code_store.write().await;
         two_fa_code_store
@@ -383,7 +384,7 @@ async fn should_return_401_if_same_code_twice() {
         .expect("Could not parse login_attempt_id");
 
     // Step 3: Get the actual 2FA code from the store
-    let email = Email::parse(&random_email).unwrap();
+    let email = Email::parse(Secret::new(random_email.to_string())).unwrap();
     let (stored_login_attempt_id, stored_two_fa_code) = {
         let two_fa_code_store = app.two_fa_code_store.write().await;
         two_fa_code_store

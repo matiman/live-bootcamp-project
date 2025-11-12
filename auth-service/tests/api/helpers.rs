@@ -12,6 +12,7 @@ use auth_service::{
     Application,
 };
 use reqwest::cookie::Jar;
+use secrecy::{ExposeSecret, Secret};
 use sqlx::{postgres::PgConnectOptions, Connection, Executor, PgConnection};
 use sqlx::{postgres::PgPoolOptions, PgPool};
 use std::{cell::Cell, str::FromStr, sync::Arc};
@@ -173,23 +174,29 @@ fn configure_redis() -> redis::Connection {
 }
 
 async fn configure_postgresql() -> (PgPool, String) {
-    let mut postgresql_conn_url = DATABASE_URL.to_owned();
+    let mut postgresql_conn_url = DATABASE_URL.clone();
 
     // Replace 'db' hostname with 'localhost' for local testing
-    postgresql_conn_url = postgresql_conn_url.replace("@db:", "@localhost:");
+    postgresql_conn_url = Secret::new(
+        postgresql_conn_url
+            .expose_secret()
+            .replace("@db:", "@localhost:"),
+    );
 
     // We are creating a new database for each test case, and we need to ensure each database has a unique name!
     let db_name = Uuid::new_v4().to_string();
 
     // Connect to default 'postgres' database to create new databases
-    let postgresql_conn_url_without_db = format!("{}/postgres", postgresql_conn_url);
+    let postgresql_conn_url_without_db =
+        format!("{}/postgres", postgresql_conn_url.expose_secret());
     configure_database(&postgresql_conn_url_without_db, &db_name).await;
 
     // Use the base URL and add the new database name
-    let postgresql_conn_url_with_db = format!("{}/{}", postgresql_conn_url, db_name);
+    let postgresql_conn_url_with_db =
+        format!("{}/{}", postgresql_conn_url.expose_secret(), db_name);
 
     // Create a new connection pool and return it along with the database name
-    let pool = get_postgres_pool(&postgresql_conn_url_with_db)
+    let pool = get_postgres_pool(Secret::new(postgresql_conn_url_with_db))
         .await
         .expect("Failed to create Postgres connection pool!");
     (pool, db_name)
@@ -232,10 +239,15 @@ async fn delete_database(db_name: &str) {
     let mut postgresql_conn_url = DATABASE_URL.to_owned();
 
     // Replace 'db' hostname with 'localhost' for local testing
-    postgresql_conn_url = postgresql_conn_url.replace("@db:", "@localhost:");
+    postgresql_conn_url = Secret::new(
+        postgresql_conn_url
+            .expose_secret()
+            .replace("@db:", "@localhost:"),
+    );
 
     // Connect to default 'postgres' database to drop the test database
-    let postgresql_conn_url_without_db = format!("{}/postgres", postgresql_conn_url);
+    let postgresql_conn_url_without_db =
+        format!("{}/postgres", postgresql_conn_url.expose_secret().as_str());
 
     let connection_options = PgConnectOptions::from_str(&postgresql_conn_url_without_db)
         .expect("Failed to parse PostgreSQL connection string");

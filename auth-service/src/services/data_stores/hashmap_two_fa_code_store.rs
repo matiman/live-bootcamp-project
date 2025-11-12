@@ -42,13 +42,15 @@ impl TwoFACodeStore for HashmapTwoFACodeStore {
 
 #[cfg(test)]
 mod tests {
+    use secrecy::Secret;
+
     //TODO  Add unit tests and use assertion
     use super::*;
 
     #[tokio::test]
     async fn test_add_code() {
         let mut store = HashmapTwoFACodeStore::default();
-        let email = Email::parse("test@example.com").unwrap();
+        let email = Email::parse(Secret::new("test@example.com".to_string())).unwrap();
         let login_attempt_id = LoginAttemptId::default();
         let code = TwoFACode::default();
         assert!(store
@@ -63,7 +65,7 @@ mod tests {
     #[tokio::test]
     async fn test_remove_code() {
         let mut store = HashmapTwoFACodeStore::default();
-        let email = Email::parse("test@example.com").unwrap();
+        let email = Email::parse(Secret::new("test@example.com".to_string())).unwrap();
         let login_attempt_id = LoginAttemptId::default();
         let code = TwoFACode::default();
         store
@@ -77,7 +79,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_code() {
         let mut store = HashmapTwoFACodeStore::default();
-        let email = Email::parse("test@example.com").unwrap();
+        let email = Email::parse(Secret::new("test@example.com".to_string())).unwrap();
         let login_attempt_id = LoginAttemptId::default();
         let code = TwoFACode::default();
         store

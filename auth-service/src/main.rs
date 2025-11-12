@@ -20,7 +20,7 @@ use tokio::sync::RwLock;
 async fn main() {
     color_eyre::install().expect("Failed to install color_eyre");
     init_tracing().expect("Failed to initialize tracing");
-    
+
     let pg_pool = configure_postgresql().await;
     let redis_conn = configure_redis();
     let shared_redis_conn = Arc::new(RwLock::new(redis_conn));
@@ -47,7 +47,7 @@ async fn main() {
 
 async fn configure_postgresql() -> PgPool {
     // Create a new database connection pool
-    let pg_pool = get_postgres_pool(&DATABASE_URL)
+    let pg_pool = get_postgres_pool(DATABASE_URL.clone())
         .await
         .expect("Failed to create Postgres connection pool!");
 

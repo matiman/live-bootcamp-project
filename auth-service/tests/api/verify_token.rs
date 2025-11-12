@@ -4,6 +4,7 @@ use chrono::Utc;
 use jsonwebtoken::{encode, EncodingKey, Header};
 use quickcheck::{Arbitrary, Gen};
 use quickcheck_macros::quickcheck;
+use secrecy::{ExposeSecret, Secret};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug)]
@@ -160,7 +161,7 @@ async fn should_return_401_if_banned_token() {
     {
         let mut banned_token_store = app.banned_token_store.write().await;
         banned_token_store
-            .add_banned_token(jwt_token.to_string())
+            .add_banned_token(Secret::new(jwt_token.to_owned()))
             .await
             .unwrap();
     } // Write lock is dropped here
@@ -207,7 +208,7 @@ impl Arbitrary for ValidJwtToken {
         let token = encode(
             &Header::default(),
             &claims,
-            &EncodingKey::from_secret(JWT_SECRET.as_bytes()),
+            &EncodingKey::from_secret(JWT_SECRET.expose_secret().as_bytes()),
         )
         .unwrap_or_else(|_| "invalid_token".to_string());
 

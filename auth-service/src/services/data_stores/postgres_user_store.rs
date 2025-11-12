@@ -1,9 +1,9 @@
-use std::error::Error;
-
 use argon2::{
     password_hash::SaltString, Algorithm, Argon2, Params, PasswordHash, PasswordHasher,
     PasswordVerifier, Version,
 };
+use secrecy::{ExposeSecret, Secret};
+use std::error::Error;
 
 use sqlx::PgPool;
 
@@ -31,7 +31,7 @@ impl UserStore for PostgresUserStore {
         // Check if user already exists
         let existing_user = sqlx::query!(
             "SELECT email FROM users WHERE email = $1",
-            user.email.as_ref() as &str
+            user.email.as_ref().expose_secret() as &str
         )
         .fetch_optional(&self.pool)
         .await
@@ -42,15 +42,15 @@ impl UserStore for PostgresUserStore {
         }
 
         // Hash the password before storing
-        let password_hash = compute_password_hash(user.password.as_ref().to_string())
+        let password_hash = compute_password_hash(user.password.as_ref().to_owned())
             .await
             .map_err(UserStoreError::UnexpectedError)?;
 
         // Insert the user into the database
         sqlx::query!(
             "INSERT INTO users (email, password_hash, requires_2fa) VALUES ($1, $2, $3)",
-            user.email.as_ref() as &str,
-            password_hash,
+            user.email.as_ref().expose_secret() as &str,
+            &password_hash.expose_secret(),
             user.requires_2fa
         )
         .execute(&self.pool)
@@ -64,7 +64,7 @@ impl UserStore for PostgresUserStore {
     async fn get_user(&self, email: &Email) -> Result<User, UserStoreError> {
         let user_row = sqlx::query!(
             "SELECT email, password_hash, requires_2fa FROM users WHERE email = $1",
-            email.as_ref() as &str
+            email.as_ref().expose_secret() as &str
         )
         .fetch_optional(&self.pool)
         .await
@@ -72,10 +72,10 @@ impl UserStore for PostgresUserStore {
 
         match user_row {
             Some(row) => {
-                let user_email =
-                    Email::parse(&row.email).map_err(|e| UserStoreError::UnexpectedError(e))?;
+                let user_email = Email::parse(Secret::new(row.email.to_string()))
+                    .map_err(|e| UserStoreError::UnexpectedError(e))?;
 
-                let password = Password::parse(&row.password_hash)
+                let password = Password::parse(Secret::new(row.password_hash))
                     .map_err(|e| UserStoreError::UnexpectedError(e))?;
 
                 Ok(User {
@@ -97,7 +97,7 @@ impl UserStore for PostgresUserStore {
         // Get the stored password hash from the database
         let user_row = sqlx::query!(
             "SELECT password_hash FROM users WHERE email = $1",
-            email.as_ref() as &str
+            email.as_ref().expose_secret() as &str
         )
         .fetch_optional(&self.pool)
         .await
@@ -109,9 +109,12 @@ impl UserStore for PostgresUserStore {
         };
 
         // Verify the provided password against the stored hash
-        verify_password_hash(stored_password_hash, password.as_ref().to_string())
-            .await
-            .map_err(|_| UserStoreError::InvalidCredentials)?;
+        verify_password_hash(
+            Secret::new(stored_password_hash),
+            password.as_ref().to_owned(),
+        )
+        .await
+        .map_err(|_| UserStoreError::InvalidCredentials)?;
 
         Ok(())
     }
@@ -121,8 +124,8 @@ impl UserStore for PostgresUserStore {
 // Uses spawn_blocking to avoid blocking async tasks during CPU-intensive hashing
 #[tracing::instrument(name = "Verify password hash", skip_all)] // New!
 async fn verify_password_hash(
-    expected_password_hash: String,
-    password_candidate: String,
+    expected_password_hash: Secret<String>,
+    password_candidate: Secret<String>,
 ) -> Result<()> {
     // This line retrieves the current span from the tracing context.
     // The span represents the execution context for the compute_password_hash function.
@@ -133,10 +136,13 @@ async fn verify_password_hash(
         current_span.in_scope(|| {
             // New!
             let expected_password_hash: PasswordHash<'_> =
-                PasswordHash::new(&expected_password_hash)?;
+                PasswordHash::new(expected_password_hash.expose_secret())?;
 
             Argon2::default()
-                .verify_password(password_candidate.as_bytes(), &expected_password_hash)
+                .verify_password(
+                    password_candidate.expose_secret().as_bytes(),
+                    &expected_password_hash,
+                )
                 .map_err(|e| e.into())
         })
     })
@@ -148,7 +154,7 @@ async fn verify_password_hash(
 // Helper function to hash passwords before persisting them in the database.
 // Uses spawn_blocking to avoid blocking async tasks during CPU-intensive hashing
 #[tracing::instrument(name = "Computing password hash", skip_all)] //New!
-async fn compute_password_hash(password: String) -> Result<String> {
+async fn compute_password_hash(password: Secret<String>) -> Result<Secret<String>> {
     // This line retrieves the current span from the tracing context.
     // The span represents the execution context for the compute_password_hash function.
     let current_span: tracing::Span = tracing::Span::current(); // New!
@@ -164,10 +170,10 @@ async fn compute_password_hash(password: String) -> Result<String> {
                 Version::V0x13,
                 Params::new(15000, 2, 1, None)?,
             )
-            .hash_password(password.as_bytes(), &salt)?
+            .hash_password(password.expose_secret().as_bytes(), &salt)?
             .to_string();
             //Err(eyre!("oh no!"))
-            Ok(password_hash)
+            Ok(Secret::new(password_hash))
         })
     })
     .await;

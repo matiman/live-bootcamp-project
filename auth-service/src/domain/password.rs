@@ -1,23 +1,38 @@
 use color_eyre::eyre::{eyre, Result};
+use secrecy::{ExposeSecret, Secret};
 use thiserror::Error;
 
-#[derive(Debug, PartialEq, Clone)]
-pub struct Password(String);
+#[derive(Debug, Clone)]
+pub struct Password(Secret<String>);
 
 impl Password {
-    pub fn parse(password: &str) -> Result<Self> {
-        let len = password.len();
-        if len < 8 || password.contains(" ") {
-            return Err(eyre!("{} is invalid password", password));
+    pub fn parse(s: Secret<String>) -> Result<Self> {
+        if validate_password(&s) {
+            Ok(Self(s))
+        } else {
+            Err(eyre!("Failed to parse string to a Password type"))
         }
-        Ok(Password(password.to_string()))
     }
 }
 
-impl AsRef<str> for Password {
-    fn as_ref(&self) -> &str {
+impl PartialEq for Password {
+    // New!
+    fn eq(&self, other: &Self) -> bool {
+        // We can use the expose_secret method to expose the secret in a
+        // controlled manner when needed!
+        self.0.expose_secret() == other.0.expose_secret() // Updated!
+    }
+}
+
+impl AsRef<Secret<String>> for Password {
+    fn as_ref(&self) -> &Secret<String> {
         &self.0
     }
+}
+
+fn validate_password(s: &Secret<String>) -> bool {
+    let password = s.expose_secret();
+    password.len() >= 8 && !password.contains(" ")
 }
 
 #[derive(Debug, Error)]
@@ -57,12 +72,12 @@ mod tests {
         ];
 
         for pass in valid_passwords {
-            let result = Password::parse(pass);
+            let result = Password::parse(Secret::new(pass.to_string()));
             assert!(result.is_ok(), "Should accept valid password: {}", pass);
 
             // Test AsRef
             let parsed = result.unwrap();
-            assert_eq!(parsed.as_ref(), pass);
+            assert_eq!(parsed.as_ref().expose_secret(), pass);
         }
     }
 
@@ -77,7 +92,7 @@ mod tests {
                 continue;
             }
 
-            let result = Password::parse(&pass);
+            let result = Password::parse(Secret::new(pass.to_string()));
             assert!(result.is_ok(), "Fake password should be valid: {}", pass);
         }
     }
@@ -93,12 +108,8 @@ mod tests {
         ];
 
         for pass in invalid_passwords {
-            let result = Password::parse(pass);
-            assert!(
-                result.is_err(),
-                "Should reject invalid password: {}",
-                pass
-            );
+            let result = Password::parse(Secret::new(pass.to_string()));
+            assert!(result.is_err(), "Should reject invalid password: {}", pass);
         }
     }
 
@@ -110,7 +121,7 @@ mod tests {
                 return TestResult::discard();
             }
 
-            let result = Password::parse(&s);
+            let result = Password::parse(Secret::new(s.to_string()));
             TestResult::from_bool(result.is_err())
         }
 

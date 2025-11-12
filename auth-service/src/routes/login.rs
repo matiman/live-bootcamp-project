@@ -1,5 +1,6 @@
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use axum_extra::extract::CookieJar;
+use secrecy::{ExposeSecret, Secret};
 use serde::{Deserialize, Serialize};
 
 use color_eyre::eyre::eyre;
@@ -19,12 +20,12 @@ pub async fn login(
     let password = request.password;
 
     //USE Email and Passowrd parse method
-    let email = match Email::parse(&email) {
+    let email = match Email::parse(Secret::new(email.to_string())) {
         Ok(email) => email,
         Err(_) => return (jar, Err(AuthAPIError::InvalidCredentials)),
     };
 
-    let password = match Password::parse(&password) {
+    let password = match Password::parse(Secret::new(password.expose_secret().to_string())) {
         Ok(password) => password,
         Err(_) => return (jar, Err(AuthAPIError::InvalidCredentials)),
     };
@@ -157,5 +158,5 @@ pub struct TwoFactorAuthResponse {
 #[derive(Deserialize)]
 pub struct LoginRequest {
     pub email: String,
-    pub password: String,
+    pub password: Secret<String>,
 }

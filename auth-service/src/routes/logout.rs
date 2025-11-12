@@ -1,5 +1,6 @@
 use axum::{extract::State, http::StatusCode, response::IntoResponse};
 use axum_extra::extract::{cookie::Cookie, CookieJar};
+use secrecy::Secret;
 
 use crate::{
     app_state::AppState,
@@ -32,7 +33,7 @@ pub async fn logout(
         .banned_token_store
         .write()
         .await
-        .add_banned_token(token.to_owned())
+        .add_banned_token(Secret::new(token.to_owned()))
         .await
     {
         return (jar, Err(AuthAPIError::UnexpectedError(e.into())));

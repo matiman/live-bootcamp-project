@@ -1,4 +1,5 @@
 use color_eyre::eyre::{eyre, Context};
+use secrecy::ExposeSecret;
 use std::sync::Arc;
 
 use redis::{Commands, Connection};
@@ -100,5 +101,5 @@ const TEN_MINUTES_IN_SECONDS: u64 = 600;
 const TWO_FA_CODE_PREFIX: &str = "two_fa_code:";
 
 fn get_key(email: &Email) -> String {
-    format!("{}{}", TWO_FA_CODE_PREFIX, email.as_ref())
+    format!("{}{}", TWO_FA_CODE_PREFIX, email.as_ref().expose_secret())
 }

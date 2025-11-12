@@ -1,5 +1,7 @@
 use std::collections::HashSet;
 
+use secrecy::{ExposeSecret, Secret};
+
 use crate::domain::{BannedTokenStore, BannedTokenStoreError};
 
 #[derive(Default)]
@@ -9,12 +11,15 @@ pub struct HashSetBannedTokenStore {
 
 #[async_trait::async_trait]
 impl BannedTokenStore for HashSetBannedTokenStore {
-    async fn add_banned_token(&mut self, token: String) -> Result<(), BannedTokenStoreError> {
-        self.banned_tokens.insert(token);
+    async fn add_banned_token(
+        &mut self,
+        token: Secret<String>,
+    ) -> Result<(), BannedTokenStoreError> {
+        self.banned_tokens.insert(token.expose_secret().clone());
         Ok(())
     }
-    async fn is_token_banned(&self, token: &str) -> Result<bool, BannedTokenStoreError> {
-        Ok(self.banned_tokens.contains(token))
+    async fn is_token_banned(&self, token: &Secret<String>) -> Result<bool, BannedTokenStoreError> {
+        Ok(self.banned_tokens.contains(token.expose_secret().as_str()))
     }
 }
 
@@ -27,7 +32,10 @@ mod tests {
         let mut store = HashSetBannedTokenStore::default();
         let token = "test_token".to_string();
 
-        assert!(store.add_banned_token(token.clone()).await.is_ok());
+        assert!(store
+            .add_banned_token(Secret::new(token.clone()))
+            .await
+            .is_ok());
         assert!(store.banned_tokens.contains(&token));
     }
 
@@ -37,6 +45,9 @@ mod tests {
         let token = "test_token".to_string();
 
         store.banned_tokens.insert(token.clone());
-        assert!(store.is_token_banned(&token).await.unwrap());
+        assert!(store
+            .is_token_banned(&Secret::new(token.clone()))
+            .await
+            .unwrap());
     }
 }
